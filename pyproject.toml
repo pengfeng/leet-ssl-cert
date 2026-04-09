@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "leet-ssl-cert"
+version = "0.1.0"
+description = "Automated SSL certificate provisioning and cloud deployment"
+readme = "PRD.md"
+requires-python = ">=3.11"
+dependencies = [
+    "acme>=2.0.0",
+    "click>=8.0",
+    "cryptography>=42.0",
+    "dnspython>=2.4",
+    "josepy>=1.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+aliyun = [
+    "alibabacloud-alb20200616",
+    "alibabacloud-alidns20150109",
+    "alibabacloud-cas20200407",
+    "alibabacloud-slb20140515",
+    "alibabacloud-tea-openapi",
+]
+aws = [
+    "boto3>=1.26",
+]
+cloudflare = [
+    "cloudflare>=3.0",
+]
+all = [
+    "leet-ssl-cert[aliyun,aws,cloudflare]",
+]
+
+[project.scripts]
+leet-ssl-cert = "leet_ssl_cert.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
