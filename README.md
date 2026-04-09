@@ -4,13 +4,22 @@
 
 `issue cert -> store locally -> upload -> bind -> renew`
 
-The current MVP focuses on:
+The current implementation covers the Phase 2 scope from the PRD:
 
 - ACME DNS-01 issuance with Let's Encrypt-compatible servers
 - Local certificate and metadata storage
 - DNS providers for Alibaba Cloud DNS, Cloudflare, and AWS Route 53
 - Deployers for Alibaba Cloud CLB, Alibaba Cloud ALB, AWS ACM, and AWS ELB/ALB listeners
 - CLI commands for `init`, `issue`, `deploy`, `run`, `check`, `revoke`, and `cron`
+
+## Support Matrix
+
+| Area | Supported |
+|---|---|
+| DNS providers | `aliyun`, `cloudflare`, `aws` |
+| Deployers | `aliyun_clb`, `aliyun_alb`, `aws_acm`, `aws_elb` |
+| ACME challenge type | DNS-01 |
+| ACME key type | RSA |
 
 ## Requirements
 
@@ -91,6 +100,14 @@ certificates:
         load_balancer_id: lb-xxxxxxxxxxxxx
         listener_port: 443
 
+  - name: api-site
+    domains:
+      - api.example.com
+    dns_provider: cloudflare
+    deploy:
+      - provider: aws_acm
+        region: us-east-1
+
 providers:
   aliyun:
     access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
@@ -104,6 +121,19 @@ Environment variables in `${VAR_NAME}` form are resolved at load time.
 For AWS, leaving `providers.aws` empty uses the standard boto3 credential chain.
 
 You can start from [`config/example.yaml`](config/example.yaml).
+
+Provider notes:
+
+- `aliyun`: expects `ALICLOUD_ACCESS_KEY_ID` and `ALICLOUD_ACCESS_KEY_SECRET`
+- `cloudflare`: expects `CLOUDFLARE_API_TOKEN`
+- `aws`: can use the normal boto3 credential chain, including env vars, `~/.aws/credentials`, profiles, or IAM role credentials
+
+Deployer notes:
+
+- `aliyun_clb`: requires `region`, `load_balancer_id`, and `listener_port`
+- `aliyun_alb`: requires `region` and `listener_id`
+- `aws_acm`: requires `region`
+- `aws_elb`: requires `region` and either `listener_arn` for ELBv2/ALB or `load_balancer_name` for Classic ELB
 
 ## Quick Start
 
@@ -124,6 +154,18 @@ Or generate one interactively:
 
 ```bash
 PYTHONPATH=src python -m leet_ssl_cert init --skip-validation
+```
+
+Generate and validate provider credentials in one step:
+
+```bash
+PYTHONPATH=src python -m leet_ssl_cert init \
+  --email admin@example.com \
+  --name my-site \
+  --domains example.com,www.example.com \
+  --dns-provider cloudflare \
+  --deployer aws_acm \
+  --region us-east-1
 ```
 
 Check the planned state:
@@ -184,6 +226,16 @@ Command behavior:
 - `init`: generates a config file and can validate cloud credentials before writing it
 - `cron`: prints the cron line for unattended renewal
 
+Useful options:
+
+- `issue --dry-run`: shows which certificates would be issued or renewed without changing state
+- `issue --force`: renews even if the current local certificate is not close to expiry
+- `run --dry-run`: checks the issuance path without deploying
+- `deploy --name NAME`: deploys only one logical certificate
+- `check --name NAME`: limits the report to one certificate
+- `init --force`: overwrites an existing config file
+- `init --skip-validation`: writes config without testing provider credentials
+
 ## Local State
 
 By default, files are stored under `~/.leet-ssl-cert/`:
@@ -199,6 +251,8 @@ By default, files are stored under `~/.leet-ssl-cert/`:
 ```
 
 `account.key` and private keys are written with restrictive file permissions.
+
+`*.meta.json` stores certificate dates and deploy metadata so `check` can report current local status.
 
 ## Development
 
@@ -246,3 +300,5 @@ Not implemented yet:
 
 - automatic cron installation
 - additional providers beyond the Phase 2 scope
+- notification/webhook integrations
+- Docker packaging / sidecar workflow
