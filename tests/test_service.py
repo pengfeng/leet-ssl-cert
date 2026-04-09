@@ -22,6 +22,9 @@ from leet_ssl_cert.storage import CertificateStorage
 
 
 class FakeAcmeManager:
+    def __init__(self) -> None:
+        self.revoked_names: list[str] = []
+
     def issue_certificate(self, certificate: CertificateConfig, dns_provider: object) -> IssuedCertificate:
         cert_pem, key_pem = build_self_signed_cert(certificate.domains[0], days=20)
         return IssuedCertificate(
@@ -30,6 +33,9 @@ class FakeAcmeManager:
             certificate_pem=cert_pem,
             private_key_pem=key_pem,
         )
+
+    def revoke_certificate(self, stored) -> None:
+        self.revoked_names.append(stored.name)
 
 
 class FakeDeployer:
@@ -54,10 +60,11 @@ class FakeDeployer:
 def test_issue_and_deploy_round_trip(tmp_path: Path) -> None:
     config = build_config(tmp_path)
     storage = CertificateStorage(config.storage.base_dir)
+    acme_manager = FakeAcmeManager()
     service = CertificateService(
         config,
         storage=storage,
-        acme_manager=FakeAcmeManager(),
+        acme_manager=acme_manager,
         dns_factory=lambda name, settings: object(),
         deployer_factory=lambda name, settings: FakeDeployer(settings),
     )
@@ -94,6 +101,76 @@ def test_issue_skips_certificate_when_not_due(tmp_path: Path) -> None:
 
     assert issue_results[0].action == "skip"
     assert "days remaining" in (issue_results[0].reason or "")
+
+
+def test_revoke_calls_acme_manager(tmp_path: Path) -> None:
+    config = build_config(tmp_path)
+    storage = CertificateStorage(config.storage.base_dir)
+    cert_pem, key_pem = build_self_signed_cert("example.com", days=90)
+    storage.save_certificate_bundle(
+        name="site",
+        certificate_pem=cert_pem,
+        private_key_pem=key_pem,
+        domains=["example.com"],
+    )
+    acme_manager = FakeAcmeManager()
+    service = CertificateService(
+        config,
+        storage=storage,
+        acme_manager=acme_manager,
+        dns_factory=lambda name, settings: object(),
+        deployer_factory=lambda name, settings: FakeDeployer(settings),
+    )
+
+    result = service.revoke(name="site")
+
+    assert result.revoked is True
+    assert acme_manager.revoked_names == ["site"]
+
+
+def test_deploy_uses_aws_provider_namespace(tmp_path: Path) -> None:
+    captured_settings: list[dict[str, object]] = []
+
+    class CapturingDeployer(FakeDeployer):
+        def __init__(self, settings: dict[str, object] | None = None) -> None:
+            super().__init__(settings)
+            captured_settings.append(self.settings)
+
+    config = AppConfig(
+        account=AccountConfig(email="admin@example.com"),
+        acme=AcmeConfig(renewal_days=30),
+        storage=StorageConfig(base_dir=tmp_path / "state" / "certs"),
+        certificates=[
+            CertificateConfig(
+                name="site",
+                domains=["example.com"],
+                dns_provider="aws",
+                deploy=[DeployTargetConfig(provider="aws_acm", settings={"region": "us-east-1"})],
+            )
+        ],
+        providers={"aws": {"profile": "default"}},
+        path=tmp_path / "config.yaml",
+    )
+    storage = CertificateStorage(config.storage.base_dir)
+    cert_pem, key_pem = build_self_signed_cert("example.com", days=90)
+    storage.save_certificate_bundle(
+        name="site",
+        certificate_pem=cert_pem,
+        private_key_pem=key_pem,
+        domains=["example.com"],
+    )
+    service = CertificateService(
+        config,
+        storage=storage,
+        acme_manager=FakeAcmeManager(),
+        dns_factory=lambda name, settings: object(),
+        deployer_factory=lambda name, settings: CapturingDeployer(settings),
+    )
+
+    service.deploy()
+
+    assert captured_settings[0]["profile"] == "default"
+    assert captured_settings[0]["region"] == "us-east-1"
 
 
 def build_config(tmp_path: Path) -> AppConfig:

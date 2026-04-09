@@ -62,3 +62,21 @@ class CertificateStatus:
     due_for_renewal: bool
     deploy_targets: list[str]
     last_deploy: dict[str, Any]
+
+
+@dataclass(slots=True)
+class RevokeResult:
+    """Result returned by certificate revocation."""
+
+    name: str
+    revoked: bool
+
+
+@dataclass(slots=True)
+class InitResult:
+    """Result returned by the interactive init flow."""
+
+    output_path: Path
+    validated: bool
+    dns_provider: str
+    deployer: str

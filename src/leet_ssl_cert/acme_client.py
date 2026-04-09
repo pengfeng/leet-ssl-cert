@@ -120,7 +120,17 @@ class AcmeCertificateManager:
             email=self.config.account.email,
             terms_of_service_agreed=True,
         )
-        client.new_account(registration)
+        try:
+            client.new_account(registration)
+        except acme_errors.ConflictError as exc:
+            existing = messages.RegistrationResource(
+                body=messages.Registration.from_data(
+                    email=self.config.account.email,
+                    terms_of_service_agreed=True,
+                ),
+                uri=exc.location,
+            )
+            client.net.account = client.query_registration(existing)
         return client
 
     def _load_or_create_account_key(self) -> jose.JWKRSA:

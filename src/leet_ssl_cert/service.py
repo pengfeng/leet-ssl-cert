@@ -10,7 +10,7 @@ from .config import AppConfig, CertificateConfig
 from .deployer import get_deployer
 from .dns import get_dns_provider
 from .errors import ACMEError, ConfigError
-from .models import CertificateStatus, DeploymentRecord, IssueResult
+from .models import CertificateStatus, DeploymentRecord, IssueResult, RevokeResult
 from .storage import CertificateStorage, certificate_remaining_days
 
 
@@ -164,6 +164,15 @@ class CertificateService:
         if not selected:
             raise ConfigError(f"Unknown certificate name: {name}")
         return selected
+
+    def revoke(self, *, name: str) -> RevokeResult:
+        """Revoke a locally stored certificate via ACME."""
+        self._select_certificates(name)
+        if not self.storage.certificate_exists(name):
+            raise ACMEError(f"Local certificate bundle not found for {name}. Nothing to revoke.")
+        stored = self.storage.load_certificate(name)
+        self.acme_manager.revoke_certificate(stored)
+        return RevokeResult(name=name, revoked=True)
 
 
 def _provider_namespace(provider_name: str) -> str:

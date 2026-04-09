@@ -15,7 +15,11 @@ class AliyunCLBDeployer(CertificateDeployer):
 
     def __init__(self, settings: dict[str, Any] | None = None) -> None:
         super().__init__(settings=settings)
-        self._client = self._build_client()
+        self._client: Any | None = None
+
+    def validate_credentials(self) -> None:
+        request_cls = self._import_request("DescribeServerCertificatesRequest")
+        self._client_or_raise().describe_server_certificates(request_cls())
 
     def upload_certificate(self, name: str, cert_pem: str, key_pem: str) -> str:
         request_cls = self._import_request("UploadServerCertificateRequest")
@@ -25,7 +29,7 @@ class AliyunCLBDeployer(CertificateDeployer):
             server_certificate=cert_pem,
             private_key=key_pem,
         )
-        response = self._client.upload_server_certificate(request)
+        response = self._client_or_raise().upload_server_certificate(request)
         certificate_id = getattr(getattr(response, "body", response), "server_certificate_id", None)
         if not certificate_id:
             raise DeployError("Alibaba Cloud CLB upload succeeded without returning server_certificate_id")
@@ -42,7 +46,7 @@ class AliyunCLBDeployer(CertificateDeployer):
             listener_port=listener_port,
             server_certificate_id=certificate_id,
         )
-        self._client.set_load_balancer_https_listener_attribute(request)
+        self._client_or_raise().set_load_balancer_https_listener_attribute(request)
         return DeployResult(
             certificate_id=certificate_id,
             provider="aliyun_clb",
@@ -52,7 +56,7 @@ class AliyunCLBDeployer(CertificateDeployer):
 
     def cleanup_old_certificates(self, name: str, keep: int = 1) -> list[str]:
         request_cls = self._import_request("DescribeServerCertificatesRequest")
-        response = self._client.describe_server_certificates(request_cls())
+        response = self._client_or_raise().describe_server_certificates(request_cls())
         records = getattr(getattr(response.body, "server_certificates", None), "server_certificate", []) or []
         prefix = f"leet-{name}-"
         matching = [record for record in records if str(getattr(record, "server_certificate_name", "")).startswith(prefix)]
@@ -64,13 +68,13 @@ class AliyunCLBDeployer(CertificateDeployer):
             certificate_id = getattr(record, "server_certificate_id", None)
             if not certificate_id:
                 continue
-            self._client.delete_server_certificate(delete_request_cls(server_certificate_id=certificate_id))
+            self._client_or_raise().delete_server_certificate(delete_request_cls(server_certificate_id=certificate_id))
             deleted_ids.append(certificate_id)
         return deleted_ids
 
     def _get_existing_certificate_id(self, load_balancer_id: str, listener_port: int) -> str | None:
         request_cls = self._import_request("DescribeLoadBalancerHTTPSListenerAttributeRequest")
-        response = self._client.describe_load_balancer_https_listener_attribute(
+        response = self._client_or_raise().describe_load_balancer_https_listener_attribute(
             request_cls(load_balancer_id=load_balancer_id, listener_port=listener_port)
         )
         return getattr(getattr(response, "body", response), "server_certificate_id", None)
@@ -106,3 +110,8 @@ class AliyunCLBDeployer(CertificateDeployer):
         except ImportError as exc:
             raise DeployError("Alibaba Cloud SLB SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
         return getattr(slb_models, name)
+
+    def _client_or_raise(self) -> Any:
+        if self._client is None:
+            self._client = self._build_client()
+        return self._client

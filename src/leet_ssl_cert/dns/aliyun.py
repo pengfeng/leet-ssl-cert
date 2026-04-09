@@ -13,7 +13,11 @@ class AliyunDNSProvider(DNSProvider):
 
     def __init__(self, settings: dict[str, Any] | None = None) -> None:
         super().__init__(settings=settings)
-        self._client = self._build_client()
+        self._client: Any | None = None
+
+    def validate_credentials(self) -> None:
+        request_cls = self._import_request("DescribeDomainsRequest")
+        self._client_or_raise().describe_domains(request_cls(page_number=1, page_size=1))
 
     def create_txt_record(self, zone: str, record_name: str, value: str) -> None:
         request_cls = self._import_request("AddDomainRecordRequest")
@@ -23,7 +27,7 @@ class AliyunDNSProvider(DNSProvider):
             type="TXT",
             value=value,
         )
-        self._client.add_domain_record(request)
+        self._client_or_raise().add_domain_record(request)
 
     def delete_txt_record(self, zone: str, record_name: str, value: str) -> None:
         request_cls = self._import_request("DescribeDomainRecordsRequest")
@@ -33,7 +37,7 @@ class AliyunDNSProvider(DNSProvider):
             type_key_word="TXT",
             value_key_word=value,
         )
-        response = self._client.describe_domain_records(request)
+        response = self._client_or_raise().describe_domain_records(request)
         record_id = None
         records = getattr(getattr(response.body, "domain_records", None), "record", []) or []
         for record in records:
@@ -43,12 +47,12 @@ class AliyunDNSProvider(DNSProvider):
         if not record_id:
             return
         delete_request_cls = self._import_request("DeleteDomainRecordRequest")
-        self._client.delete_domain_record(delete_request_cls(record_id=record_id))
+        self._client_or_raise().delete_domain_record(delete_request_cls(record_id=record_id))
 
     def find_zone_for_domain(self, domain: str) -> str:
         request_cls = self._import_request("DescribeDomainsRequest")
         request = request_cls(page_number=1, page_size=100)
-        response = self._client.describe_domains(request)
+        response = self._client_or_raise().describe_domains(request)
         domains = getattr(getattr(response.body, "domains", None), "domain", []) or []
         candidates = [getattr(item, "domain_name", "") for item in domains]
         matches = [candidate for candidate in candidates if domain == candidate or domain.endswith(f".{candidate}")]
@@ -75,6 +79,11 @@ class AliyunDNSProvider(DNSProvider):
         if endpoint:
             config.endpoint = endpoint
         return AlidnsClient(config)
+
+    def _client_or_raise(self) -> Any:
+        if self._client is None:
+            self._client = self._build_client()
+        return self._client
 
     def _import_request(self, name: str) -> Any:
         try:
