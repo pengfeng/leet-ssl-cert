@@ -1,0 +1,27 @@
+account:
+  email: admin@example.com
+
+acme:
+  directory_url: https://acme-v02.api.letsencrypt.org/directory
+  key_size: 2048
+  renewal_days: 30
+
+storage:
+  base_dir: ~/.leet-ssl-cert/certs
+
+certificates:
+  - name: my-site
+    domains:
+      - example.com
+      - www.example.com
+    dns_provider: aliyun
+    deploy:
+      - provider: aliyun_clb
+        region: cn-hangzhou
+        load_balancer_id: lb-xxxxxxxxxxxxx
+        listener_port: 443
+
+providers:
+  aliyun:
+    access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
+    access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
