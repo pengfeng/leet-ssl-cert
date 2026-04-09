@@ -78,7 +78,6 @@ def validate_setup(
     deploy_settings: dict[str, Any],
 ) -> None:
     """Validate provider and deployer credentials using environment-backed settings."""
-    preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
     dns_settings = _runtime_provider_settings(_provider_namespace(dns_provider), deploy_settings)
     get_dns_provider(dns_provider, dns_settings).validate_credentials()
 

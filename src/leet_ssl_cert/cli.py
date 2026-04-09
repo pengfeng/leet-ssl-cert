@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from .bootstrap import DEPLOYER_CHOICES, DNS_PROVIDER_CHOICES, initialize_config
+from .bootstrap import DEPLOYER_CHOICES, DNS_PROVIDER_CHOICES, initialize_config, preflight_provider_environment
 from .config import load_config
 from .errors import LeetSSLCertError
 from .scheduler import build_cron_entry
@@ -122,57 +122,64 @@ def init(
     load_balancer_name: str | None,
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
-    email = email or _prompt_with_help(
-        "ACME account email",
-        "This email creates or reuses your ACME account. Certificate authorities like Let's Encrypt may use it for expiry notices or account-related messages.",
-        concise=concise,
-    )
-    certificate_name = certificate_name or _prompt_with_help(
-        "Certificate name",
-        "This is a local label used for filenames, logs, and selecting one certificate with --name later.",
-        concise=concise,
-    )
-    domains = domains or _prompt_with_help(
-        "Domains (comma separated)",
-        "These are the hostnames that will be included in the certificate, such as example.com and www.example.com.",
-        concise=concise,
-    )
-    dns_provider = dns_provider or _prompt_with_help(
-        "DNS provider",
-        "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
-        concise=concise,
-        type=click.Choice(DNS_PROVIDER_CHOICES),
-    )
-    deployer = deployer or _prompt_with_help(
-        "Deployment provider",
-        "This is the cloud target where the issued certificate will be uploaded or attached after it is created.",
-        concise=concise,
-        type=click.Choice(DEPLOYER_CHOICES),
-    )
-    deploy_settings = _collect_deploy_settings(
-        deployer=deployer,
-        concise=concise,
-        region=region,
-        load_balancer_id=load_balancer_id,
-        listener_id=listener_id,
-        listener_port=listener_port,
-        listener_arn=listener_arn,
-        load_balancer_name=load_balancer_name,
-    )
-    result = initialize_config(
-        email=email,
-        certificate_name=certificate_name,
-        domains=_parse_domains(domains),
-        dns_provider=dns_provider,
-        deployer=deployer,
-        deploy_settings=deploy_settings,
-        output_path=output_path,
-        force=force,
-        validate=not skip_validation,
-    )
-    if result.validated:
-        click.echo(f"Validated credentials for {result.dns_provider} and {result.deployer}")
-    click.echo(f"Wrote config to {result.output_path}")
+    try:
+        dns_provider = dns_provider or _prompt_with_help(
+            "DNS provider",
+            "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
+            concise=concise,
+            type=click.Choice(DNS_PROVIDER_CHOICES),
+        )
+        deployer = deployer or _prompt_with_help(
+            "Deployment provider",
+            "This is the cloud target where the issued certificate will be uploaded or attached after it is created.",
+            concise=concise,
+            type=click.Choice(DEPLOYER_CHOICES),
+        )
+
+        if not skip_validation:
+            preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
+
+        email = email or _prompt_with_help(
+            "ACME account email",
+            "This email creates or reuses your ACME account. Certificate authorities like Let's Encrypt may use it for expiry notices or account-related messages.",
+            concise=concise,
+        )
+        certificate_name = certificate_name or _prompt_with_help(
+            "Certificate name",
+            "This is a local label used for filenames, logs, and selecting one certificate with --name later.",
+            concise=concise,
+        )
+        domains = domains or _prompt_with_help(
+            "Domains (comma separated)",
+            "These are the hostnames that will be included in the certificate, such as example.com and www.example.com.",
+            concise=concise,
+        )
+        deploy_settings = _collect_deploy_settings(
+            deployer=deployer,
+            concise=concise,
+            region=region,
+            load_balancer_id=load_balancer_id,
+            listener_id=listener_id,
+            listener_port=listener_port,
+            listener_arn=listener_arn,
+            load_balancer_name=load_balancer_name,
+        )
+        result = initialize_config(
+            email=email,
+            certificate_name=certificate_name,
+            domains=_parse_domains(domains),
+            dns_provider=dns_provider,
+            deployer=deployer,
+            deploy_settings=deploy_settings,
+            output_path=output_path,
+            force=force,
+            validate=not skip_validation,
+        )
+        if result.validated:
+            click.echo(f"Validated credentials for {result.dns_provider} and {result.deployer}")
+        click.echo(f"Wrote config to {result.output_path}")
+    except LeetSSLCertError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @main.command()

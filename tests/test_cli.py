@@ -3,6 +3,7 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from leet_ssl_cert import cli
+from leet_ssl_cert.errors import ConfigError
 from leet_ssl_cert.models import InitResult
 from leet_ssl_cert.models import CertificateStatus
 
@@ -93,3 +94,29 @@ def test_prompt_region_accepts_custom(monkeypatch) -> None:
     region = cli._prompt_region("aws", concise=True)
 
     assert region == "me-central-1"
+
+
+def test_init_fails_early_on_env_preflight(monkeypatch) -> None:
+    prompts: list[str] = []
+
+    def fake_prompt(text, **kwargs):
+        prompts.append(text)
+        if text == "DNS provider":
+            return "aliyun"
+        if text == "Deployment provider":
+            return "aliyun_clb"
+        raise AssertionError(f"unexpected prompt: {text}")
+
+    monkeypatch.setattr(cli.click, "prompt", fake_prompt)
+    monkeypatch.setattr(
+        cli,
+        "preflight_provider_environment",
+        lambda **kwargs: (_ for _ in ()).throw(ConfigError("Missing required environment variables. Set the variables listed above and retry.")),
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["init"])
+
+    assert result.exit_code != 0
+    assert "Error: Missing required environment variables." in result.output
+    assert prompts == ["DNS provider", "Deployment provider"]

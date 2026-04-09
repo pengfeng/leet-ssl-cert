@@ -176,6 +176,8 @@ PYTHONPATH=src python -m leet_ssl_cert init \
 
 During interactive setup:
 
+- the tool asks for the DNS provider and deployment provider first when validation is enabled
+- required environment variables are checked before the rest of the setup questions so you do not waste time filling in fields only to fail later
 - the prompts explain each item in plain English by default
 - `--concise` suppresses those extra explanations
 - region prompts show a few common regions first and allow a custom region code if yours is not listed
