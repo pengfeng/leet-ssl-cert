@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+import sys
 from typing import Any
 
 import yaml
@@ -15,6 +16,17 @@ from .models import InitResult
 
 DNS_PROVIDER_CHOICES = ("aliyun", "cloudflare", "aws")
 DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb")
+ENV_VAR_DEFINITIONS = {
+    "ALICLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
+    "ALICLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
+    "CLOUDFLARE_API_TOKEN": "Cloudflare API token with permission to list zones and manage DNS records.",
+    "AWS_ACCESS_KEY_ID": "AWS access key ID used by boto3 when using environment-based credentials.",
+    "AWS_SECRET_ACCESS_KEY": "AWS secret access key paired with AWS_ACCESS_KEY_ID.",
+    "AWS_SESSION_TOKEN": "Temporary AWS session token used with short-lived credentials.",
+    "AWS_PROFILE": "AWS shared credential profile name for boto3.",
+    "AWS_REGION": "Default AWS region used by boto3 clients.",
+    "AWS_DEFAULT_REGION": "Fallback AWS region used by boto3 when AWS_REGION is unset.",
+}
 
 
 def build_init_config(
@@ -66,6 +78,7 @@ def validate_setup(
     deploy_settings: dict[str, Any],
 ) -> None:
     """Validate provider and deployer credentials using environment-backed settings."""
+    preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
     dns_settings = _runtime_provider_settings(_provider_namespace(dns_provider), deploy_settings)
     get_dns_provider(dns_provider, dns_settings).validate_credentials()
 
@@ -106,6 +119,15 @@ def initialize_config(
     )
 
 
+def preflight_provider_environment(*, dns_provider: str, deployer: str) -> None:
+    """Print required env vars for init validation and fail early if any are missing."""
+    namespaces = {_provider_namespace(dns_provider), _provider_namespace(deployer)}
+    env_names: list[str] = []
+    for namespace in sorted(namespaces):
+        env_names.extend(_provider_env_vars(namespace))
+    _emit_env_report(env_names)
+
+
 def _provider_namespace(provider_name: str) -> str:
     if "_" not in provider_name:
         return provider_name
@@ -129,16 +151,12 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
     if namespace == "aliyun":
         access_key_id = os.getenv("ALICLOUD_ACCESS_KEY_ID")
         access_key_secret = os.getenv("ALICLOUD_ACCESS_KEY_SECRET")
-        if not access_key_id or not access_key_secret:
-            raise ConfigError("Alibaba Cloud validation requires ALICLOUD_ACCESS_KEY_ID and ALICLOUD_ACCESS_KEY_SECRET")
         return {
             "access_key_id": access_key_id,
             "access_key_secret": access_key_secret,
         }
     if namespace == "cloudflare":
         api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-        if not api_token:
-            raise ConfigError("Cloudflare validation requires CLOUDFLARE_API_TOKEN")
         return {"api_token": api_token}
     if namespace == "aws":
         settings: dict[str, Any] = {}
@@ -156,3 +174,62 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
             settings["region"] = region
         return settings
     return {}
+
+
+def preflight_config_environment(raw_data: dict[str, Any]) -> None:
+    """Print env vars referenced by config and fail early if any are missing."""
+    env_names = sorted(_find_env_placeholders(raw_data))
+    if env_names:
+        _emit_env_report(env_names)
+
+
+def _emit_env_report(env_names: list[str]) -> None:
+    if not env_names:
+        return
+    stream = sys.stderr
+    stream.write("Environment variables used for this operation:\n")
+    missing: list[str] = []
+    for env_name in env_names:
+        value = os.getenv(env_name)
+        definition = ENV_VAR_DEFINITIONS.get(env_name, "Environment variable referenced by the configuration or provider setup.")
+        stream.write(f"- {env_name}: {definition}\n")
+        stream.write(f"  value: {value if value is not None else '<not set>'}\n")
+        if value in (None, ""):
+            missing.append(env_name)
+    if missing:
+        stream.write("\nMissing required environment variables:\n")
+        for env_name in missing:
+            stream.write(f"- {env_name}\n")
+        raise ConfigError("Missing required environment variables. Set the variables listed above and retry.")
+
+
+def _provider_env_vars(namespace: str) -> list[str]:
+    if namespace == "aliyun":
+        return ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"]
+    if namespace == "cloudflare":
+        return ["CLOUDFLARE_API_TOKEN"]
+    if namespace == "aws":
+        return []
+    return []
+
+
+def _find_env_placeholders(value: Any) -> set[str]:
+    placeholders: set[str] = set()
+    if isinstance(value, dict):
+        for item in value.values():
+            placeholders.update(_find_env_placeholders(item))
+        return placeholders
+    if isinstance(value, list):
+        for item in value:
+            placeholders.update(_find_env_placeholders(item))
+        return placeholders
+    if isinstance(value, str):
+        current = value
+        while "${" in current:
+            start = current.find("${")
+            end = current.find("}", start + 2)
+            if end == -1:
+                break
+            placeholders.add(current[start + 2 : end])
+            current = current[end + 1 :]
+    return placeholders

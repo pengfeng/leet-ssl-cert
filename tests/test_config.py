@@ -52,5 +52,35 @@ providers:
         encoding="utf-8",
     )
 
-    with pytest.raises(ConfigError, match="MISSING_ENV"):
+    with pytest.raises(ConfigError, match="Missing required environment variables"):
         load_config(config_path)
+
+
+def test_load_config_reports_used_env_values(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        """
+account:
+  email: admin@example.com
+certificates:
+  - name: site
+    domains: [example.com]
+    dns_provider: aliyun
+providers:
+  aliyun:
+    access_key_id: ${TEST_ACCESS_KEY}
+    access_key_secret: static-secret
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TEST_ACCESS_KEY", "resolved-key")
+
+    load_config(config_path)
+
+    captured = capsys.readouterr()
+    assert "TEST_ACCESS_KEY" in captured.err
+    assert "value: resolved-key" in captured.err

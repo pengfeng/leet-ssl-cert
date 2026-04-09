@@ -84,3 +84,12 @@ def test_init_command_writes_config(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert f"Wrote config to {output_path}" in result.output
+
+
+def test_prompt_region_accepts_custom(monkeypatch) -> None:
+    answers = iter(["custom", "me-central-1"])
+    monkeypatch.setattr(cli.click, "prompt", lambda *args, **kwargs: next(answers))
+
+    region = cli._prompt_region("aws", concise=True)
+
+    assert region == "me-central-1"

@@ -156,6 +156,12 @@ Or generate one interactively:
 PYTHONPATH=src python -m leet_ssl_cert init --skip-validation
 ```
 
+If you want a shorter setup flow without the plain-English explanations:
+
+```bash
+PYTHONPATH=src python -m leet_ssl_cert init --concise --skip-validation
+```
+
 Generate and validate provider credentials in one step:
 
 ```bash
@@ -167,6 +173,13 @@ PYTHONPATH=src python -m leet_ssl_cert init \
   --deployer aws_acm \
   --region us-east-1
 ```
+
+During interactive setup:
+
+- the prompts explain each item in plain English by default
+- `--concise` suppresses those extra explanations
+- region prompts show a few common regions first and allow a custom region code if yours is not listed
+- validation now checks required environment variables before making provider API calls and prints the current values it found
 
 Check the planned state:
 
@@ -235,6 +248,7 @@ Useful options:
 - `check --name NAME`: limits the report to one certificate
 - `init --force`: overwrites an existing config file
 - `init --skip-validation`: writes config without testing provider credentials
+- `init --concise`: keeps interactive prompts short and skips the extra explanations
 
 ## Local State
 
@@ -253,6 +267,18 @@ By default, files are stored under `~/.leet-ssl-cert/`:
 `account.key` and private keys are written with restrictive file permissions.
 
 `*.meta.json` stores certificate dates and deploy metadata so `check` can report current local status.
+
+## Environment Checks
+
+When a command uses environment-backed configuration, the tool now performs a preflight check before continuing.
+
+It prints:
+
+- the environment variables used by the current operation
+- a plain-English definition for each variable
+- the value currently detected for each variable
+
+If a required variable is missing, the command exits early with a clear error after printing the full checklist.
 
 ## Development
 

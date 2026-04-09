@@ -12,6 +12,23 @@ from .errors import LeetSSLCertError
 from .scheduler import build_cron_entry
 from .service import CertificateService
 
+POPULAR_REGIONS = {
+    "aliyun": [
+        ("cn-hangzhou", "Hangzhou"),
+        ("cn-shanghai", "Shanghai"),
+        ("cn-beijing", "Beijing"),
+        ("ap-southeast-1", "Singapore"),
+        ("us-west-1", "Silicon Valley"),
+    ],
+    "aws": [
+        ("us-east-1", "N. Virginia"),
+        ("us-west-2", "Oregon"),
+        ("eu-west-1", "Ireland"),
+        ("ap-southeast-1", "Singapore"),
+        ("ap-northeast-1", "Tokyo"),
+    ],
+}
+
 
 def build_service(config_path: str | None) -> CertificateService:
     """Construct a service instance from a config path."""
@@ -75,6 +92,7 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 @click.option("--output", "output_path", default="leet-ssl-cert.yaml", show_default=True, type=click.Path(dir_okay=False, path_type=Path), help="Where to write the generated config.")
 @click.option("--force", is_flag=True, help="Overwrite an existing config file.")
 @click.option("--skip-validation", is_flag=True, help="Write the config without validating provider credentials.")
+@click.option("--concise", is_flag=True, help="Skip the explanatory text and ask only the necessary questions.")
 @click.option("--email", help="ACME account email.")
 @click.option("--name", "certificate_name", help="Logical certificate name.")
 @click.option("--domains", help="Comma-separated domain list.")
@@ -90,6 +108,7 @@ def init(
     output_path: Path,
     force: bool,
     skip_validation: bool,
+    concise: bool,
     email: str | None,
     certificate_name: str | None,
     domains: str | None,
@@ -103,13 +122,36 @@ def init(
     load_balancer_name: str | None,
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
-    email = email or click.prompt("ACME account email")
-    certificate_name = certificate_name or click.prompt("Certificate name")
-    domains = domains or click.prompt("Domains (comma separated)")
-    dns_provider = dns_provider or click.prompt("DNS provider", type=click.Choice(DNS_PROVIDER_CHOICES))
-    deployer = deployer or click.prompt("Deployment provider", type=click.Choice(DEPLOYER_CHOICES))
+    email = email or _prompt_with_help(
+        "ACME account email",
+        "This email creates or reuses your ACME account. Certificate authorities like Let's Encrypt may use it for expiry notices or account-related messages.",
+        concise=concise,
+    )
+    certificate_name = certificate_name or _prompt_with_help(
+        "Certificate name",
+        "This is a local label used for filenames, logs, and selecting one certificate with --name later.",
+        concise=concise,
+    )
+    domains = domains or _prompt_with_help(
+        "Domains (comma separated)",
+        "These are the hostnames that will be included in the certificate, such as example.com and www.example.com.",
+        concise=concise,
+    )
+    dns_provider = dns_provider or _prompt_with_help(
+        "DNS provider",
+        "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
+        concise=concise,
+        type=click.Choice(DNS_PROVIDER_CHOICES),
+    )
+    deployer = deployer or _prompt_with_help(
+        "Deployment provider",
+        "This is the cloud target where the issued certificate will be uploaded or attached after it is created.",
+        concise=concise,
+        type=click.Choice(DEPLOYER_CHOICES),
+    )
     deploy_settings = _collect_deploy_settings(
         deployer=deployer,
+        concise=concise,
         region=region,
         load_balancer_id=load_balancer_id,
         listener_id=listener_id,
@@ -202,6 +244,7 @@ def _parse_domains(domains: str) -> list[str]:
 def _collect_deploy_settings(
     *,
     deployer: str,
+    concise: bool,
     region: str | None,
     load_balancer_id: str | None,
     listener_id: str | None,
@@ -211,32 +254,97 @@ def _collect_deploy_settings(
 ) -> dict[str, object]:
     settings: dict[str, object] = {}
     if deployer in {"aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb"}:
-        region = region or click.prompt("Region")
+        namespace = deployer.split("_", 1)[0]
+        region = region or _prompt_region(namespace, concise=concise)
         settings["region"] = region
     if deployer == "aliyun_clb":
-        settings["load_balancer_id"] = load_balancer_id or click.prompt("CLB load balancer id")
-        settings["listener_port"] = listener_port or click.prompt("HTTPS listener port", type=int, default=443)
+        settings["load_balancer_id"] = load_balancer_id or _prompt_with_help(
+            "CLB load balancer id",
+            "This is the Alibaba Cloud CLB instance ID that already serves your traffic.",
+            concise=concise,
+        )
+        settings["listener_port"] = listener_port or _prompt_with_help(
+            "HTTPS listener port",
+            "This is the HTTPS listener port on the CLB that should use the uploaded certificate.",
+            concise=concise,
+            type=int,
+            default=443,
+        )
     elif deployer == "aliyun_alb":
-        settings["listener_id"] = listener_id or click.prompt("ALB listener id")
+        settings["listener_id"] = listener_id or _prompt_with_help(
+            "ALB listener id",
+            "This is the Alibaba Cloud ALB listener ID that should be associated with the certificate.",
+            concise=concise,
+        )
     elif deployer == "aws_acm":
         pass
     elif deployer == "aws_elb":
         if not listener_arn and not load_balancer_name:
-            mode = click.prompt(
+            mode = _prompt_with_help(
                 "Target mode",
+                "Choose listener_arn for Application or Network Load Balancer listeners, or classic_load_balancer for the older Classic ELB service.",
+                concise=concise,
                 type=click.Choice(("listener_arn", "classic_load_balancer")),
                 default="listener_arn",
             )
             if mode == "listener_arn":
-                listener_arn = click.prompt("ELBv2 listener ARN")
+                listener_arn = _prompt_with_help(
+                    "ELBv2 listener ARN",
+                    "This is the full ARN of the AWS ALB or NLB listener that should use the certificate.",
+                    concise=concise,
+                )
             else:
-                load_balancer_name = click.prompt("Classic ELB name")
+                load_balancer_name = _prompt_with_help(
+                    "Classic ELB name",
+                    "This is the name of the Classic Load Balancer that should use the certificate.",
+                    concise=concise,
+                )
         if listener_arn:
             settings["listener_arn"] = listener_arn
         if load_balancer_name:
             settings["load_balancer_name"] = load_balancer_name
-            settings["listener_port"] = listener_port or click.prompt("HTTPS listener port", type=int, default=443)
+            settings["listener_port"] = listener_port or _prompt_with_help(
+                "HTTPS listener port",
+                "This is the Classic ELB listener port that should use the certificate.",
+                concise=concise,
+                type=int,
+                default=443,
+            )
     return settings
+
+
+def _prompt_with_help(
+    text: str,
+    explanation: str,
+    *,
+    concise: bool,
+    type=None,
+    default=None,
+):
+    if not concise:
+        click.echo(f"\n{text}")
+        click.echo(f"  {explanation}")
+    return click.prompt(text, type=type, default=default)
+
+
+def _prompt_region(namespace: str, *, concise: bool) -> str:
+    popular_regions = POPULAR_REGIONS.get(namespace, [])
+    if not concise and popular_regions:
+        click.echo("\nRegion")
+        click.echo("  Choose the cloud region where your load balancer or certificate resource lives.")
+        click.echo("  Popular options:")
+        for code, label in popular_regions:
+            click.echo(f"  - {code}: {label}")
+        click.echo("  - custom: enter another region code")
+    if popular_regions:
+        choice = click.prompt(
+            "Region",
+            type=click.Choice([code for code, _ in popular_regions] + ["custom"]),
+            default=popular_regions[0][0],
+        )
+        if choice != "custom":
+            return choice
+    return click.prompt("Custom region")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from .bootstrap import preflight_config_environment
 from .errors import ConfigError
 
 DEFAULT_DIRECTORY_URL = "https://acme-v02.api.letsencrypt.org/directory"
@@ -91,6 +92,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     if not isinstance(raw_data, dict):
         raise ConfigError("Config root must be a mapping")
 
+    preflight_config_environment(raw_data)
     interpolated = _interpolate_env(raw_data)
     config = _parse_config(interpolated, config_path)
     _validate_config(config)
