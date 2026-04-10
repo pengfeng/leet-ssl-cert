@@ -50,6 +50,8 @@ leet-ssl-cert init aliyun
 leet-ssl-cert init aws
 ```
 
+`<provider>` is the deployment cloud provider. The init flow asks for the DNS provider separately and only offers deployers from the selected cloud.
+
 Or copy the example and edit it:
 
 ```bash
@@ -84,7 +86,7 @@ leet-ssl-cert cron
 
 | Command | What it does |
 |---|---|
-| `init <provider>` | Generate a config file interactively for `aliyun`, `aws`, or `gcp` |
+| `init <provider>` | Generate a config file interactively for deployment cloud `aliyun`, `aws`, or `gcp` |
 | `issue` | Obtain or renew certificates via ACME |
 | `deploy` | Upload certs and bind them to load balancers |
 | `run` | `issue` + `deploy` in one step |

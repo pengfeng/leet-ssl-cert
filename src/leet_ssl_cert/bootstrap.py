@@ -16,6 +16,11 @@ from leet_ssl_cert.providers import get_deployer, get_dns_provider
 INIT_PROVIDER_CHOICES = ("aliyun", "aws", "gcp")
 DNS_PROVIDER_CHOICES = ("aliyun", "aws")
 DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb")
+DEPLOYER_CHOICES_BY_PROVIDER = {
+    "aliyun": ("aliyun_clb", "aliyun_alb"),
+    "aws": ("aws_acm", "aws_elb"),
+    "gcp": (),
+}
 ENV_VAR_DEFINITIONS = {
     "ALICLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
     "ALICLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
@@ -139,7 +144,22 @@ def initialize_config(
 
 def preflight_provider_environment(*, dns_provider: str, deployer: str) -> None:
     """Print required env vars for init validation and fail early if any are missing."""
-    namespaces = {_provider_namespace(dns_provider), _provider_namespace(deployer)}
+    _preflight_provider_namespaces(
+        dns_provider_namespace=_provider_namespace(dns_provider),
+        deployment_provider_namespace=_provider_namespace(deployer),
+    )
+
+
+def preflight_provider_namespaces(*, dns_provider: str, deployment_provider: str) -> None:
+    """Print required env vars for init validation using DNS and deployment provider namespaces."""
+    _preflight_provider_namespaces(
+        dns_provider_namespace=_provider_namespace(dns_provider),
+        deployment_provider_namespace=_provider_namespace(deployment_provider),
+    )
+
+
+def _preflight_provider_namespaces(*, dns_provider_namespace: str, deployment_provider_namespace: str) -> None:
+    namespaces = {dns_provider_namespace, deployment_provider_namespace}
     env_names: list[str] = []
     for namespace in sorted(namespaces):
         env_names.extend(_provider_env_vars(namespace))
