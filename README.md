@@ -45,7 +45,9 @@ See the provider guide for your cloud: [Aliyun](docs/aliyun.guide.md) | [AWS](do
 Generate one interactively:
 
 ```bash
-leet-ssl-cert init
+leet-ssl-cert init aliyun
+# or
+leet-ssl-cert init aws
 ```
 
 Or copy the example and edit it:
@@ -82,7 +84,7 @@ leet-ssl-cert cron
 
 | Command | What it does |
 |---|---|
-| `init` | Generate a config file interactively |
+| `init <provider>` | Generate a config file interactively for `aliyun`, `aws`, or `gcp` |
 | `issue` | Obtain or renew certificates via ACME |
 | `deploy` | Upload certs and bind them to load balancers |
 | `run` | `issue` + `deploy` in one step |
@@ -98,8 +100,8 @@ issue --force            # Renew even if not expiring soon
 issue --name my-site     # Target a single certificate
 run --dry-run            # Check issuance path without deploying
 deploy --name my-site    # Deploy only one certificate
-init --skip-validation   # Skip provider credential checks
-init --concise           # Short prompts without explanations
+init aliyun --skip-validation   # Skip provider credential checks
+init aws --concise              # Short prompts without explanations
 ```
 
 ## Configuration

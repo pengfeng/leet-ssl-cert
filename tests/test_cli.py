@@ -68,6 +68,7 @@ def test_init_command_writes_config(monkeypatch, tmp_path) -> None:
         cli.main,
         [
             "init",
+            "aliyun",
             "--output",
             str(output_path),
             "--skip-validation",
@@ -129,6 +130,7 @@ def test_init_command_prefills_prompts_from_cache(monkeypatch, tmp_path) -> None
         cli.main,
         [
             "init",
+            "aws",
             "--output",
             str(output_path),
             "--skip-validation",
@@ -155,7 +157,7 @@ def test_prompt_region_accepts_custom(monkeypatch) -> None:
     assert region == "me-central-1"
 
 
-def test_init_fails_early_on_env_preflight(monkeypatch, tmp_path) -> None:
+def test_init_fails_on_env_preflight_after_provider_prompts(monkeypatch, tmp_path) -> None:
     events: list[str] = []
 
     def fake_prompt(text, **kwargs):
@@ -168,7 +170,6 @@ def test_init_fails_early_on_env_preflight(monkeypatch, tmp_path) -> None:
 
     monkeypatch.setattr(cli.click, "prompt", fake_prompt)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "print_setup_environment_snapshot", lambda: events.append("snapshot"))
     monkeypatch.setattr(
         cli,
         "preflight_provider_environment",
@@ -176,8 +177,30 @@ def test_init_fails_early_on_env_preflight(monkeypatch, tmp_path) -> None:
     )
     runner = CliRunner()
 
-    result = runner.invoke(cli.main, ["init"])
+    result = runner.invoke(cli.main, ["init", "aliyun"])
 
     assert result.exit_code != 0
     assert "Error: Missing required environment variables." in result.output
-    assert events == ["snapshot", "prompt:DNS provider", "prompt:Deployment provider"]
+    assert events == ["prompt:DNS provider", "prompt:Deployment provider"]
+
+
+def test_init_requires_provider() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["init"])
+
+    assert result.exit_code != 0
+    assert "Missing argument 'PROVIDER'" in result.output
+
+
+def test_init_gcp_reports_planned_support(monkeypatch, tmp_path) -> None:
+    events: list[str] = []
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "print_provider_environment_snapshot", lambda provider: events.append(f"snapshot:{provider}"))
+    runner = CliRunner()
+
+    result = runner.invoke(cli.main, ["init", "gcp"])
+
+    assert result.exit_code != 0
+    assert "GCP support is planned but not implemented yet." in result.output
+    assert events == ["snapshot:gcp"]

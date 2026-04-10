@@ -13,6 +13,7 @@ from leet_ssl_cert.errors import ConfigError
 from leet_ssl_cert.models import InitResult
 from leet_ssl_cert.providers import get_deployer, get_dns_provider
 
+INIT_PROVIDER_CHOICES = ("aliyun", "aws", "gcp")
 DNS_PROVIDER_CHOICES = ("aliyun", "aws")
 DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb")
 ENV_VAR_DEFINITIONS = {
@@ -24,16 +25,26 @@ ENV_VAR_DEFINITIONS = {
     "AWS_PROFILE": "AWS shared credential profile name for boto3.",
     "AWS_REGION": "Default AWS region used by boto3 clients.",
     "AWS_DEFAULT_REGION": "Fallback AWS region used by boto3 when AWS_REGION is unset.",
+    "GOOGLE_APPLICATION_CREDENTIALS": "Path to a Google Cloud service account JSON key for Application Default Credentials.",
+    "GCP_PROJECT": "Google Cloud project ID used by the planned GCP provider.",
+    "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID recognized by Google Cloud SDKs.",
+}
+SETUP_ENV_VARS_BY_PROVIDER = {
+    "aliyun": ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"],
+    "aws": [
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_PROFILE",
+        "AWS_REGION",
+        "AWS_DEFAULT_REGION",
+    ],
+    "gcp": ["GOOGLE_APPLICATION_CREDENTIALS", "GCP_PROJECT", "GOOGLE_CLOUD_PROJECT"],
 }
 SUPPORTED_SETUP_ENV_VARS = [
-    "ALICLOUD_ACCESS_KEY_ID",
-    "ALICLOUD_ACCESS_KEY_SECRET",
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "AWS_SESSION_TOKEN",
-    "AWS_PROFILE",
-    "AWS_REGION",
-    "AWS_DEFAULT_REGION",
+    env_name
+    for provider in INIT_PROVIDER_CHOICES
+    for env_name in SETUP_ENV_VARS_BY_PROVIDER[provider]
 ]
 
 
@@ -138,6 +149,11 @@ def preflight_provider_environment(*, dns_provider: str, deployer: str) -> None:
 def print_setup_environment_snapshot() -> None:
     """Print the env vars commonly used by supported providers before interactive setup starts."""
     _emit_env_report(SUPPORTED_SETUP_ENV_VARS, fail_on_missing=False)
+
+
+def print_provider_environment_snapshot(provider: str) -> None:
+    """Print the env vars commonly used by one provider before interactive setup starts."""
+    _emit_env_report(SETUP_ENV_VARS_BY_PROVIDER.get(provider, []), fail_on_missing=False)
 
 
 def _provider_namespace(provider_name: str) -> str:

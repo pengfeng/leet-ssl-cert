@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from leet_ssl_cert.bootstrap import build_init_config, preflight_provider_environment, write_init_config
+from leet_ssl_cert.bootstrap import (
+    build_init_config,
+    preflight_provider_environment,
+    print_provider_environment_snapshot,
+    write_init_config,
+)
 from leet_ssl_cert.errors import ConfigError
 
 
@@ -68,3 +73,18 @@ def test_preflight_provider_environment_redacts_sensitive_env_values(
     assert "value: secxxxxxxret" in captured.err
     assert "abc123456def" not in captured.err
     assert "sec123456ret" not in captured.err
+
+
+def test_print_provider_environment_snapshot_is_scoped(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("AWS_PROFILE", "dev")
+    monkeypatch.delenv("ALICLOUD_ACCESS_KEY_ID", raising=False)
+
+    print_provider_environment_snapshot("aws")
+
+    captured = capsys.readouterr()
+    assert "AWS_PROFILE" in captured.err
+    assert "value: dev" in captured.err
+    assert "ALICLOUD_ACCESS_KEY_ID" not in captured.err

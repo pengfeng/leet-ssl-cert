@@ -11,9 +11,10 @@ import click
 from leet_ssl_cert.bootstrap import (
     DEPLOYER_CHOICES,
     DNS_PROVIDER_CHOICES,
+    INIT_PROVIDER_CHOICES,
     initialize_config,
     preflight_provider_environment,
-    print_setup_environment_snapshot,
+    print_provider_environment_snapshot,
 )
 from leet_ssl_cert.config import load_config
 from leet_ssl_cert.errors import LeetSSLCertError
@@ -98,6 +99,7 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 
 
 @main.command()
+@click.argument("provider", metavar="PROVIDER", type=click.Choice(INIT_PROVIDER_CHOICES))
 @click.option("--output", "output_path", default="leet-ssl-cert.yaml", show_default=True, type=click.Path(dir_okay=False, path_type=Path), help="Where to write the generated config.")
 @click.option("--force", is_flag=True, help="Overwrite an existing config file.")
 @click.option("--skip-validation", is_flag=True, help="Write the config without validating provider credentials.")
@@ -114,6 +116,7 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 @click.option("--listener-arn", help="AWS ELBv2 listener ARN.")
 @click.option("--load-balancer-name", help="AWS Classic ELB name.")
 def init(
+    provider: str,
     output_path: Path,
     force: bool,
     skip_validation: bool,
@@ -132,6 +135,11 @@ def init(
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
     try:
+        if provider == "gcp":
+            if not skip_validation:
+                print_provider_environment_snapshot(provider)
+            raise click.ClickException("GCP support is planned but not implemented yet.")
+
         init_input_cache = _load_init_input_cache()
         _remember_init_inputs(
             init_input_cache,
@@ -152,14 +160,13 @@ def init(
             if dns_provider and deployer:
                 preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
                 validated_provider_selection = True
-            else:
-                print_setup_environment_snapshot()
 
         dns_provider = dns_provider or _prompt_with_help(
             "DNS provider",
             "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
             concise=concise,
             type=click.Choice(DNS_PROVIDER_CHOICES),
+            default=provider if provider in DNS_PROVIDER_CHOICES else None,
             cache=init_input_cache,
             cache_key="dns_provider",
         )
