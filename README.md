@@ -181,6 +181,7 @@ During interactive setup:
 - the prompts explain each item in plain English by default
 - `--concise` suppresses those extra explanations
 - region prompts show a few common regions first and allow a custom region code if yours is not listed
+- prompt answers are saved in `.leet/.init-inputs.json` so the next `init` run can prefill them
 - validation now checks required environment variables before making provider API calls and prints the current values it found
 
 Check the planned state:

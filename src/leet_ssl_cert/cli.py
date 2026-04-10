@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -34,6 +36,7 @@ POPULAR_REGIONS = {
         ("ap-northeast-1", "Tokyo"),
     ],
 }
+INIT_INPUT_CACHE_PATH = Path(".leet") / ".init-inputs.json"
 
 
 def build_service(config_path: str | None) -> CertificateService:
@@ -129,6 +132,21 @@ def init(
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
     try:
+        init_input_cache = _load_init_input_cache()
+        _remember_init_inputs(
+            init_input_cache,
+            dns_provider=dns_provider,
+            deployer=deployer,
+            email=email,
+            certificate_name=certificate_name,
+            domains=domains,
+            region=region,
+            load_balancer_id=load_balancer_id,
+            listener_id=listener_id,
+            listener_port=listener_port,
+            listener_arn=listener_arn,
+            load_balancer_name=load_balancer_name,
+        )
         validated_provider_selection = False
         if not skip_validation:
             if dns_provider and deployer:
@@ -142,12 +160,16 @@ def init(
             "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
             concise=concise,
             type=click.Choice(DNS_PROVIDER_CHOICES),
+            cache=init_input_cache,
+            cache_key="dns_provider",
         )
         deployer = deployer or _prompt_with_help(
             "Deployment provider",
             "This is the cloud target where the issued certificate will be uploaded or attached after it is created.",
             concise=concise,
             type=click.Choice(DEPLOYER_CHOICES),
+            cache=init_input_cache,
+            cache_key="deployer",
         )
 
         if not skip_validation and not validated_provider_selection:
@@ -157,20 +179,27 @@ def init(
             "ACME account email",
             "This email creates or reuses your ACME account. Certificate authorities like Let's Encrypt may use it for expiry notices or account-related messages.",
             concise=concise,
+            cache=init_input_cache,
+            cache_key="email",
         )
         certificate_name = certificate_name or _prompt_with_help(
             "Certificate name",
             "This is a local label used for filenames, logs, and selecting one certificate with --name later.",
             concise=concise,
+            cache=init_input_cache,
+            cache_key="certificate_name",
         )
         domains = domains or _prompt_with_help(
             "Domains (comma separated)",
             "These are the hostnames that will be included in the certificate, such as example.com and www.example.com.",
             concise=concise,
+            cache=init_input_cache,
+            cache_key="domains",
         )
         deploy_settings = _collect_deploy_settings(
             deployer=deployer,
             concise=concise,
+            cache=init_input_cache,
             region=region,
             load_balancer_id=load_balancer_id,
             listener_id=listener_id,
@@ -266,6 +295,7 @@ def _collect_deploy_settings(
     *,
     deployer: str,
     concise: bool,
+    cache: dict[str, Any],
     region: str | None,
     load_balancer_id: str | None,
     listener_id: str | None,
@@ -276,13 +306,20 @@ def _collect_deploy_settings(
     settings: dict[str, object] = {}
     if deployer in {"aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb"}:
         namespace = deployer.split("_", 1)[0]
-        region = region or _prompt_region(namespace, concise=concise)
+        region = region or _prompt_region(
+            namespace,
+            concise=concise,
+            cache=cache,
+            cache_key="region",
+        )
         settings["region"] = region
     if deployer == "aliyun_clb":
         settings["load_balancer_id"] = load_balancer_id or _prompt_with_help(
             "CLB load balancer id",
             "This is the Alibaba Cloud CLB instance ID that already serves your traffic.",
             concise=concise,
+            cache=cache,
+            cache_key="load_balancer_id",
         )
         settings["listener_port"] = listener_port or _prompt_with_help(
             "HTTPS listener port",
@@ -290,12 +327,16 @@ def _collect_deploy_settings(
             concise=concise,
             type=int,
             default=443,
+            cache=cache,
+            cache_key="listener_port",
         )
     elif deployer == "aliyun_alb":
         settings["listener_id"] = listener_id or _prompt_with_help(
             "ALB listener id",
             "This is the Alibaba Cloud ALB listener ID that should be associated with the certificate.",
             concise=concise,
+            cache=cache,
+            cache_key="listener_id",
         )
     elif deployer == "aws_acm":
         pass
@@ -307,18 +348,24 @@ def _collect_deploy_settings(
                 concise=concise,
                 type=click.Choice(("listener_arn", "classic_load_balancer")),
                 default="listener_arn",
+                cache=cache,
+                cache_key="target_mode",
             )
             if mode == "listener_arn":
                 listener_arn = _prompt_with_help(
                     "ELBv2 listener ARN",
                     "This is the full ARN of the AWS ALB or NLB listener that should use the certificate.",
                     concise=concise,
+                    cache=cache,
+                    cache_key="listener_arn",
                 )
             else:
                 load_balancer_name = _prompt_with_help(
                     "Classic ELB name",
                     "This is the name of the Classic Load Balancer that should use the certificate.",
                     concise=concise,
+                    cache=cache,
+                    cache_key="load_balancer_name",
                 )
         if listener_arn:
             settings["listener_arn"] = listener_arn
@@ -330,6 +377,8 @@ def _collect_deploy_settings(
                 concise=concise,
                 type=int,
                 default=443,
+                cache=cache,
+                cache_key="listener_port",
             )
     return settings
 
@@ -341,14 +390,26 @@ def _prompt_with_help(
     concise: bool,
     type=None,
     default=None,
+    cache: dict[str, Any] | None = None,
+    cache_key: str | None = None,
 ):
     if not concise:
         click.echo(f"\n{text}")
         click.echo(f"  {explanation}")
-    return click.prompt(text, type=type, default=default)
+    prompt_default = _cached_prompt_default(cache, cache_key, default, type)
+    value = click.prompt(text, type=type, default=prompt_default)
+    if cache_key:
+        _remember_init_input(cache, cache_key, value)
+    return value
 
 
-def _prompt_region(namespace: str, *, concise: bool) -> str:
+def _prompt_region(
+    namespace: str,
+    *,
+    concise: bool,
+    cache: dict[str, Any] | None = None,
+    cache_key: str | None = None,
+) -> str:
     popular_regions = POPULAR_REGIONS.get(namespace, [])
     if not concise and popular_regions:
         click.echo("\nRegion")
@@ -357,15 +418,100 @@ def _prompt_region(namespace: str, *, concise: bool) -> str:
         for code, label in popular_regions:
             click.echo(f"  - {code}: {label}")
         click.echo("  - custom: enter another region code")
+    cached_region = _cached_prompt_default(cache, cache_key, None, None)
     if popular_regions:
+        popular_region_codes = [code for code, _ in popular_regions]
+        default_choice = popular_regions[0][0]
+        if cached_region in popular_region_codes:
+            default_choice = cached_region
+        elif cached_region:
+            default_choice = "custom"
         choice = click.prompt(
             "Region",
-            type=click.Choice([code for code, _ in popular_regions] + ["custom"]),
-            default=popular_regions[0][0],
+            type=click.Choice(popular_region_codes + ["custom"]),
+            default=default_choice,
         )
         if choice != "custom":
+            if cache_key:
+                _remember_init_input(cache, cache_key, choice)
             return choice
-    return click.prompt("Custom region")
+    if cached_region:
+        region = click.prompt("Custom region", default=cached_region)
+    else:
+        region = click.prompt("Custom region")
+    if cache_key:
+        _remember_init_input(cache, cache_key, region)
+    return region
+
+
+def _load_init_input_cache(path: Path = INIT_INPUT_CACHE_PATH) -> dict[str, Any]:
+    try:
+        raw_cache = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw_cache, dict):
+        return {}
+    return raw_cache
+
+
+def _remember_init_input(
+    cache: dict[str, Any] | None,
+    key: str,
+    value: Any,
+    path: Path = INIT_INPUT_CACHE_PATH,
+) -> None:
+    _remember_init_inputs(cache, path=path, **{key: value})
+
+
+def _remember_init_inputs(
+    cache: dict[str, Any] | None,
+    path: Path = INIT_INPUT_CACHE_PATH,
+    **values: Any,
+) -> None:
+    if cache is None:
+        return
+    changed = False
+    for key, value in values.items():
+        if value is not None:
+            cache[key] = value
+            changed = True
+    if not changed:
+        return
+    _save_init_input_cache(cache, path)
+
+
+def _save_init_input_cache(cache: dict[str, Any], path: Path = INIT_INPUT_CACHE_PATH) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_name(f"{path.name}.tmp")
+        tmp_path.write_text(
+            json.dumps(cache, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        tmp_path.replace(path)
+    except OSError:
+        return
+
+
+def _cached_prompt_default(
+    cache: dict[str, Any] | None,
+    key: str | None,
+    fallback: Any,
+    prompt_type: Any,
+) -> Any:
+    if not cache or not key or key not in cache:
+        return fallback
+    value = cache[key]
+    if value in (None, ""):
+        return fallback
+    if prompt_type is int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return fallback
+    if isinstance(prompt_type, click.Choice):
+        return value if value in prompt_type.choices else fallback
+    return value
 
 
 if __name__ == "__main__":

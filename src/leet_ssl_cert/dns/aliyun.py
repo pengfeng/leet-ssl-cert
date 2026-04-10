@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from ..errors import DNSError
@@ -17,7 +18,12 @@ class AliyunDNSProvider(DNSProvider):
 
     def validate_credentials(self) -> None:
         request_cls = self._import_request("DescribeDomainsRequest")
-        self._client_or_raise().describe_domains(request_cls(page_number=1, page_size=1))
+        try:
+            self._client_or_raise().describe_domains(request_cls(page_number=1, page_size=1))
+        except DNSError:
+            raise
+        except Exception as exc:
+            raise DNSError(f"Alibaba Cloud DNS credential validation failed: {exc}") from exc
 
     def create_txt_record(self, zone: str, record_name: str, value: str) -> None:
         request_cls = self._import_request("AddDomainRecordRequest")
@@ -74,11 +80,18 @@ class AliyunDNSProvider(DNSProvider):
         config = open_api_models.Config(
             access_key_id=access_key_id,
             access_key_secret=access_key_secret,
+            region_id=self._region_id(),
         )
         endpoint = self.settings.get("endpoint")
         if endpoint:
             config.endpoint = endpoint
         return AlidnsClient(config)
+
+    def _region_id(self) -> str:
+        region_id = str(self.settings.get("region") or os.getenv("ALICLOUD_REGION") or "").strip()
+        if not region_id:
+            raise DNSError("aliyun provider requires region or ALICLOUD_REGION")
+        return region_id
 
     def _client_or_raise(self) -> Any:
         if self._client is None:

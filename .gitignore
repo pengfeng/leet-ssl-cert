@@ -184,4 +184,5 @@ eval/results/
 eval/__pycache__/
 eval/*.log
 scripts/pids/
-.leet
+.leet/
+leet-ssl-cert.yaml

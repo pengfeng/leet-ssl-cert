@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 from typing import Any
 
 from ..errors import DeployError
@@ -19,10 +20,15 @@ class AliyunALBDeployer(CertificateDeployer):
         self._cas_client: Any | None = None
 
     def validate_credentials(self) -> None:
-        self._cas_client_or_raise().list_user_certificate_order(
-            self._cas_request("ListUserCertificateOrderRequest")(show_size=1, current_page=1, order_type="UPLOAD")
-        )
-        self._alb_client_or_raise().list_listeners(self._alb_request("ListListenersRequest")(max_results=1))
+        try:
+            self._cas_client_or_raise().list_user_certificate_order(
+                self._cas_request("ListUserCertificateOrderRequest")(show_size=1, current_page=1, order_type="UPLOAD")
+            )
+            self._alb_client_or_raise().list_listeners(self._alb_request("ListListenersRequest")(max_results=1))
+        except DeployError:
+            raise
+        except Exception as exc:
+            raise DeployError(f"Alibaba Cloud ALB credential validation failed: {exc}") from exc
 
     def upload_certificate(self, name: str, cert_pem: str, key_pem: str) -> str:
         request_cls = self._cas_request("UploadUserCertificateRequest")
@@ -126,6 +132,7 @@ class AliyunALBDeployer(CertificateDeployer):
         config = open_api_models.Config(
             access_key_id=access_key_id,
             access_key_secret=access_key_secret,
+            region_id=self._region_id(),
         )
         endpoint = self.settings.get("alb_endpoint")
         if endpoint:
@@ -145,11 +152,18 @@ class AliyunALBDeployer(CertificateDeployer):
         config = open_api_models.Config(
             access_key_id=access_key_id,
             access_key_secret=access_key_secret,
+            region_id=self._region_id(),
         )
         endpoint = self.settings.get("cas_endpoint")
         if endpoint:
             config.endpoint = endpoint
         return CasClient(config)
+
+    def _region_id(self) -> str:
+        region_id = str(self.settings.get("region") or os.getenv("ALICLOUD_REGION") or "").strip()
+        if not region_id:
+            raise DeployError("aliyun_alb deployer requires region or ALICLOUD_REGION")
+        return region_id
 
     def _alb_request(self, name: str) -> Any:
         try:

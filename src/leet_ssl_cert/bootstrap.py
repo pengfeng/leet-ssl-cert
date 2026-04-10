@@ -166,10 +166,14 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
     if namespace == "aliyun":
         access_key_id = os.getenv("ALICLOUD_ACCESS_KEY_ID")
         access_key_secret = os.getenv("ALICLOUD_ACCESS_KEY_SECRET")
-        return {
+        settings = {
             "access_key_id": access_key_id,
             "access_key_secret": access_key_secret,
         }
+        region = os.getenv("ALICLOUD_REGION") or deploy_settings.get("region")
+        if region:
+            settings["region"] = region
+        return settings
     if namespace == "cloudflare":
         api_token = os.getenv("CLOUDFLARE_API_TOKEN")
         return {"api_token": api_token}

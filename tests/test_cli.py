@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from click.testing import CliRunner
 
 from leet_ssl_cert import cli
@@ -49,6 +51,7 @@ def test_revoke_command_renders_status(monkeypatch) -> None:
 
 def test_init_command_writes_config(monkeypatch, tmp_path) -> None:
     output_path = tmp_path / "leet-ssl-cert.yaml"
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         cli,
         "initialize_config",
@@ -85,6 +88,62 @@ def test_init_command_writes_config(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert f"Wrote config to {output_path}" in result.output
+    saved_inputs = json.loads((tmp_path / ".leet" / ".init-inputs.json").read_text(encoding="utf-8"))
+    assert saved_inputs["email"] == "admin@example.com"
+    assert saved_inputs["region"] == "us-east-1"
+
+
+def test_init_command_prefills_prompts_from_cache(monkeypatch, tmp_path) -> None:
+    output_path = tmp_path / "leet-ssl-cert.yaml"
+    cache_dir = tmp_path / ".leet"
+    cache_dir.mkdir()
+    (cache_dir / ".init-inputs.json").write_text(
+        json.dumps(
+            {
+                "dns_provider": "cloudflare",
+                "deployer": "aws_acm",
+                "email": "admin@example.com",
+                "certificate_name": "site",
+                "domains": "example.com,www.example.com",
+                "region": "us-west-2",
+            }
+        ),
+        encoding="utf-8",
+    )
+    captured_kwargs = {}
+
+    def fake_initialize_config(**kwargs):
+        captured_kwargs.update(kwargs)
+        return InitResult(
+            output_path=output_path,
+            validated=False,
+            dns_provider=kwargs["dns_provider"],
+            deployer=kwargs["deployer"],
+        )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "initialize_config", fake_initialize_config)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli.main,
+        [
+            "init",
+            "--output",
+            str(output_path),
+            "--skip-validation",
+            "--concise",
+        ],
+        input="\n\n\n\n\n\n",
+    )
+
+    assert result.exit_code == 0
+    assert captured_kwargs["dns_provider"] == "cloudflare"
+    assert captured_kwargs["deployer"] == "aws_acm"
+    assert captured_kwargs["email"] == "admin@example.com"
+    assert captured_kwargs["certificate_name"] == "site"
+    assert captured_kwargs["domains"] == ["example.com", "www.example.com"]
+    assert captured_kwargs["deploy_settings"] == {"region": "us-west-2"}
 
 
 def test_prompt_region_accepts_custom(monkeypatch) -> None:
@@ -96,7 +155,7 @@ def test_prompt_region_accepts_custom(monkeypatch) -> None:
     assert region == "me-central-1"
 
 
-def test_init_fails_early_on_env_preflight(monkeypatch) -> None:
+def test_init_fails_early_on_env_preflight(monkeypatch, tmp_path) -> None:
     events: list[str] = []
 
     def fake_prompt(text, **kwargs):
@@ -108,6 +167,7 @@ def test_init_fails_early_on_env_preflight(monkeypatch) -> None:
         raise AssertionError(f"unexpected prompt: {text}")
 
     monkeypatch.setattr(cli.click, "prompt", fake_prompt)
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli, "print_setup_environment_snapshot", lambda: events.append("snapshot"))
     monkeypatch.setattr(
         cli,
