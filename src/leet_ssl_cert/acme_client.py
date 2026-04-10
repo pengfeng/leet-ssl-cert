@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import time
 from typing import Any
 
@@ -72,7 +72,7 @@ class AcmeCertificateManager:
                 self._wait_for_dns(record_name, validation)
                 client.answer_challenge(challenge_body, response)
 
-            deadline = datetime.now(timezone.utc) + timedelta(seconds=self.acme.order_poll_timeout)
+            deadline = self._order_poll_deadline()
             finalized = client.poll_and_finalize(order, deadline)
             if not finalized.fullchain_pem:
                 raise ACMEError(f"ACME order for {certificate.name} did not return a certificate chain")
@@ -177,6 +177,10 @@ class AcmeCertificateManager:
             return b"".join(strings).decode("utf-8")
         text = answer.to_text()
         return text.strip('"')
+
+    def _order_poll_deadline(self) -> datetime:
+        # acme.ClientV2 compares deadlines to datetime.now(), so this must be offset-naive.
+        return datetime.now() + timedelta(seconds=self.acme.order_poll_timeout)
 
     def _cleanup_challenge_records(self, dns_provider: DNSProvider, records: list[ChallengeRecord]) -> DNSError | None:
         errors: list[str] = []
