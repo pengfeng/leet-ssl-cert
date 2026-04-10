@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from ..errors import DNSError
-from .base import DNSProvider
+from leet_ssl_cert.errors import DNSError
+from leet_ssl_cert.providers.base import DNSProvider
 
 
 class AliyunDNSProvider(DNSProvider):

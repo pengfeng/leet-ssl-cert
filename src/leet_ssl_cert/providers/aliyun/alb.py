@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 import os
 from typing import Any
 
-from ..errors import DeployError
-from ..models import DeployResult
-from .base import CertificateDeployer
+from leet_ssl_cert.errors import DeployError
+from leet_ssl_cert.models import DeployResult
+from leet_ssl_cert.providers.base import CertificateDeployer
 
 
 class AliyunALBDeployer(CertificateDeployer):

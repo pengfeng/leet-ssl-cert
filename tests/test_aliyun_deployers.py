@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from leet_ssl_cert.deployer.aliyun_clb import AliyunCLBDeployer, _leaf_certificate_pem
+from leet_ssl_cert.providers.aliyun.clb import AliyunCLBDeployer, _leaf_certificate_pem
 from leet_ssl_cert.errors import DeployError
 from leet_ssl_cert.models import DeployResult
 

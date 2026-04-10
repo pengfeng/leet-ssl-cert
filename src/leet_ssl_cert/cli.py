@@ -8,17 +8,19 @@ from typing import Any
 
 import click
 
-from .bootstrap import (
+from leet_ssl_cert.bootstrap import (
     DEPLOYER_CHOICES,
+    DEPLOYER_CHOICES_BY_PROVIDER,
     DNS_PROVIDER_CHOICES,
+    INIT_PROVIDER_CHOICES,
     initialize_config,
-    preflight_provider_environment,
-    print_setup_environment_snapshot,
+    preflight_provider_namespaces,
+    print_provider_environment_snapshot,
 )
-from .config import load_config
-from .errors import LeetSSLCertError
-from .scheduler import build_cron_entry
-from .service import CertificateService
+from leet_ssl_cert.config import load_config
+from leet_ssl_cert.errors import LeetSSLCertError
+from leet_ssl_cert.scheduler import build_cron_entry
+from leet_ssl_cert.service import CertificateService
 
 POPULAR_REGIONS = {
     "aliyun": [
@@ -98,6 +100,7 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 
 
 @main.command()
+@click.argument("provider", metavar="PROVIDER", type=click.Choice(INIT_PROVIDER_CHOICES))
 @click.option("--output", "output_path", default="leet-ssl-cert.yaml", show_default=True, type=click.Path(dir_okay=False, path_type=Path), help="Where to write the generated config.")
 @click.option("--force", is_flag=True, help="Overwrite an existing config file.")
 @click.option("--skip-validation", is_flag=True, help="Write the config without validating provider credentials.")
@@ -114,6 +117,7 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 @click.option("--listener-arn", help="AWS ELBv2 listener ARN.")
 @click.option("--load-balancer-name", help="AWS Classic ELB name.")
 def init(
+    provider: str,
     output_path: Path,
     force: bool,
     skip_validation: bool,
@@ -132,6 +136,12 @@ def init(
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
     try:
+        if provider == "gcp":
+            if not skip_validation:
+                print_provider_environment_snapshot(provider)
+            raise click.ClickException("GCP support is planned but not implemented yet.")
+
+        deployer_choices = DEPLOYER_CHOICES_BY_PROVIDER[provider]
         init_input_cache = _load_init_input_cache()
         _remember_init_inputs(
             init_input_cache,
@@ -147,33 +157,33 @@ def init(
             listener_arn=listener_arn,
             load_balancer_name=load_balancer_name,
         )
-        validated_provider_selection = False
-        if not skip_validation:
-            if dns_provider and deployer:
-                preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
-                validated_provider_selection = True
-            else:
-                print_setup_environment_snapshot()
 
         dns_provider = dns_provider or _prompt_with_help(
             "DNS provider",
             "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
             concise=concise,
             type=click.Choice(DNS_PROVIDER_CHOICES),
+            default=provider if provider in DNS_PROVIDER_CHOICES else None,
             cache=init_input_cache,
             cache_key="dns_provider",
         )
+        if not skip_validation:
+            preflight_provider_namespaces(dns_provider=dns_provider, deployment_provider=provider)
+
+        if deployer and deployer not in deployer_choices:
+            allowed_deployers = ", ".join(deployer_choices)
+            raise click.ClickException(
+                f"Deployment provider {deployer!r} is not supported for cloud provider {provider!r}. "
+                f"Choose one of: {allowed_deployers}."
+            )
         deployer = deployer or _prompt_with_help(
             "Deployment provider",
             "This is the cloud target where the issued certificate will be uploaded or attached after it is created.",
             concise=concise,
-            type=click.Choice(DEPLOYER_CHOICES),
+            type=click.Choice(deployer_choices),
             cache=init_input_cache,
             cache_key="deployer",
         )
-
-        if not skip_validation and not validated_provider_selection:
-            preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
 
         email = email or _prompt_with_help(
             "ACME account email",
@@ -207,6 +217,7 @@ def init(
             listener_arn=listener_arn,
             load_balancer_name=load_balancer_name,
         )
+        output_path, force = _resolve_init_output_path(output_path, force, concise=concise)
         result = initialize_config(
             email=email,
             certificate_name=certificate_name,
@@ -381,6 +392,29 @@ def _collect_deploy_settings(
                 cache_key="listener_port",
             )
     return settings
+
+
+def _resolve_init_output_path(output_path: Path, force: bool, *, concise: bool) -> tuple[Path, bool]:
+    path = output_path.expanduser()
+    while path.exists() and not force:
+        if not concise:
+            click.echo(f"\nConfig file already exists: {path}")
+            click.echo("  Choose abort, overwrite, or different_file.")
+        choice = click.prompt(
+            "Existing config file action",
+            type=click.Choice(("abort", "overwrite", "different_file")),
+            default="different_file",
+        )
+        if choice == "abort":
+            raise click.Abort()
+        if choice == "overwrite":
+            return path, True
+        path = click.prompt(
+            "Output path",
+            type=click.Path(dir_okay=False, path_type=Path),
+            default=path.with_name(f"{path.stem}.new{path.suffix}"),
+        ).expanduser()
+    return path, force
 
 
 def _prompt_with_help(

@@ -24,7 +24,7 @@ certificates:
   - name: api-site
     domains:
       - api.example.com
-    dns_provider: cloudflare
+    dns_provider: aws
     deploy:
       - provider: aws_acm
         region: us-east-1
@@ -33,6 +33,4 @@ providers:
   aliyun:
     access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
     access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
-  cloudflare:
-    api_token: ${CLOUDFLARE_API_TOKEN}
   aws: {}

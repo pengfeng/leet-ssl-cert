@@ -16,11 +16,11 @@ import dns.exception
 import dns.resolver
 import josepy as jose
 
-from .config import AcmeConfig, AppConfig, CertificateConfig
-from .dns.base import DNSProvider
-from .errors import ACMEError, DNSError
-from .models import IssuedCertificate
-from .storage import CertificateStorage, StoredCertificate
+from leet_ssl_cert.config import AcmeConfig, AppConfig, CertificateConfig
+from leet_ssl_cert.errors import ACMEError, DNSError
+from leet_ssl_cert.models import IssuedCertificate
+from leet_ssl_cert.providers.base import DNSProvider
+from leet_ssl_cert.storage import CertificateStorage, StoredCertificate
 
 
 @dataclass(slots=True)

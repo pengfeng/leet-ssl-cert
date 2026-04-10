@@ -28,11 +28,8 @@ aliyun = [
 aws = [
     "boto3>=1.26",
 ]
-cloudflare = [
-    "cloudflare>=3.0",
-]
 all = [
-    "leet-ssl-cert[aliyun,aws,cloudflare]",
+    "leet-ssl-cert[aliyun,aws]",
 ]
 
 [project.scripts]

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..errors import DeployError
-from ..models import DeployResult
-from .aws_acm import AWSACMDeployer
+from leet_ssl_cert.errors import DeployError
+from leet_ssl_cert.models import DeployResult
+from leet_ssl_cert.providers.aws.acm import AWSACMDeployer
 
 
 class AWSELBDeployer(AWSACMDeployer):
