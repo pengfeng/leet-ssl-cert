@@ -97,10 +97,10 @@ def test_prompt_region_accepts_custom(monkeypatch) -> None:
 
 
 def test_init_fails_early_on_env_preflight(monkeypatch) -> None:
-    prompts: list[str] = []
+    events: list[str] = []
 
     def fake_prompt(text, **kwargs):
-        prompts.append(text)
+        events.append(f"prompt:{text}")
         if text == "DNS provider":
             return "aliyun"
         if text == "Deployment provider":
@@ -108,6 +108,7 @@ def test_init_fails_early_on_env_preflight(monkeypatch) -> None:
         raise AssertionError(f"unexpected prompt: {text}")
 
     monkeypatch.setattr(cli.click, "prompt", fake_prompt)
+    monkeypatch.setattr(cli, "print_setup_environment_snapshot", lambda: events.append("snapshot"))
     monkeypatch.setattr(
         cli,
         "preflight_provider_environment",
@@ -119,4 +120,4 @@ def test_init_fails_early_on_env_preflight(monkeypatch) -> None:
 
     assert result.exit_code != 0
     assert "Error: Missing required environment variables." in result.output
-    assert prompts == ["DNS provider", "Deployment provider"]
+    assert events == ["snapshot", "prompt:DNS provider", "prompt:Deployment provider"]

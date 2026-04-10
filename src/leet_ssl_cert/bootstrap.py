@@ -27,6 +27,17 @@ ENV_VAR_DEFINITIONS = {
     "AWS_REGION": "Default AWS region used by boto3 clients.",
     "AWS_DEFAULT_REGION": "Fallback AWS region used by boto3 when AWS_REGION is unset.",
 }
+SUPPORTED_SETUP_ENV_VARS = [
+    "ALICLOUD_ACCESS_KEY_ID",
+    "ALICLOUD_ACCESS_KEY_SECRET",
+    "CLOUDFLARE_API_TOKEN",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_PROFILE",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+]
 
 
 def build_init_config(
@@ -124,7 +135,12 @@ def preflight_provider_environment(*, dns_provider: str, deployer: str) -> None:
     env_names: list[str] = []
     for namespace in sorted(namespaces):
         env_names.extend(_provider_env_vars(namespace))
-    _emit_env_report(env_names)
+    _emit_env_report(env_names, fail_on_missing=True)
+
+
+def print_setup_environment_snapshot() -> None:
+    """Print the env vars commonly used by supported providers before interactive setup starts."""
+    _emit_env_report(SUPPORTED_SETUP_ENV_VARS, fail_on_missing=False)
 
 
 def _provider_namespace(provider_name: str) -> str:
@@ -179,10 +195,10 @@ def preflight_config_environment(raw_data: dict[str, Any]) -> None:
     """Print env vars referenced by config and fail early if any are missing."""
     env_names = sorted(_find_env_placeholders(raw_data))
     if env_names:
-        _emit_env_report(env_names)
+        _emit_env_report(env_names, fail_on_missing=True)
 
 
-def _emit_env_report(env_names: list[str]) -> None:
+def _emit_env_report(env_names: list[str], *, fail_on_missing: bool) -> None:
     if not env_names:
         return
     stream = sys.stderr
@@ -195,7 +211,7 @@ def _emit_env_report(env_names: list[str]) -> None:
         stream.write(f"  value: {value if value is not None else '<not set>'}\n")
         if value in (None, ""):
             missing.append(env_name)
-    if missing:
+    if missing and fail_on_missing:
         stream.write("\nMissing required environment variables:\n")
         for env_name in missing:
             stream.write(f"- {env_name}\n")

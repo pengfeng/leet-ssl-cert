@@ -6,7 +6,13 @@ from pathlib import Path
 
 import click
 
-from .bootstrap import DEPLOYER_CHOICES, DNS_PROVIDER_CHOICES, initialize_config, preflight_provider_environment
+from .bootstrap import (
+    DEPLOYER_CHOICES,
+    DNS_PROVIDER_CHOICES,
+    initialize_config,
+    preflight_provider_environment,
+    print_setup_environment_snapshot,
+)
 from .config import load_config
 from .errors import LeetSSLCertError
 from .scheduler import build_cron_entry
@@ -123,6 +129,14 @@ def init(
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
     try:
+        validated_provider_selection = False
+        if not skip_validation:
+            if dns_provider and deployer:
+                preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
+                validated_provider_selection = True
+            else:
+                print_setup_environment_snapshot()
+
         dns_provider = dns_provider or _prompt_with_help(
             "DNS provider",
             "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
@@ -136,7 +150,7 @@ def init(
             type=click.Choice(DEPLOYER_CHOICES),
         )
 
-        if not skip_validation:
+        if not skip_validation and not validated_provider_selection:
             preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
 
         email = email or _prompt_with_help(
