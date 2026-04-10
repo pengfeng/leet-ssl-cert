@@ -6,6 +6,7 @@ import pytest
 
 from leet_ssl_cert.deployer.aliyun_clb import AliyunCLBDeployer, _leaf_certificate_pem
 from leet_ssl_cert.errors import DeployError
+from leet_ssl_cert.models import DeployResult
 
 
 def test_aliyun_clb_client_config_includes_region(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -95,3 +96,40 @@ intermediate
     assert leaf.count("-----BEGIN CERTIFICATE-----") == 1
     assert "leaf" in leaf
     assert "intermediate" not in leaf
+
+
+def test_aliyun_clb_bind_uses_generated_httpslistener_method(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    class FakeBody:
+        server_certificate_id = "old-cert"
+
+    class FakeClient:
+        def describe_load_balancer_httpslistener_attribute(self, request):
+            calls.append("describe")
+            return SimpleNamespace(body=FakeBody())
+
+        def set_load_balancer_httpslistener_attribute(self, request):
+            calls.append("set")
+
+    class FakeRequest:
+        def __init__(self, **kwargs) -> None:
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(AliyunCLBDeployer, "_import_request", lambda self, name: FakeRequest)
+    deployer = AliyunCLBDeployer(
+        {
+            "access_key_id": "ak",
+            "access_key_secret": "sk",
+            "region": "cn-shanghai",
+            "load_balancer_id": "lb-test",
+            "listener_port": 443,
+        }
+    )
+    deployer._client = FakeClient()
+
+    result = deployer.bind_certificate("new-cert")
+
+    assert isinstance(result, DeployResult)
+    assert result.old_certificate_id == "old-cert"
+    assert calls == ["describe", "set"]

@@ -60,7 +60,7 @@ class AliyunCLBDeployer(CertificateDeployer):
             listener_port=listener_port,
             server_certificate_id=certificate_id,
         )
-        self._client_or_raise().set_load_balancer_https_listener_attribute(request)
+        self._client_or_raise().set_load_balancer_httpslistener_attribute(request)
         return DeployResult(
             certificate_id=certificate_id,
             provider="aliyun_clb",
@@ -90,7 +90,7 @@ class AliyunCLBDeployer(CertificateDeployer):
 
     def _get_existing_certificate_id(self, load_balancer_id: str, listener_port: int) -> str | None:
         request_cls = self._import_request("DescribeLoadBalancerHTTPSListenerAttributeRequest")
-        response = self._client_or_raise().describe_load_balancer_https_listener_attribute(
+        response = self._client_or_raise().describe_load_balancer_httpslistener_attribute(
             request_cls(region_id=self._region_id(), load_balancer_id=load_balancer_id, listener_port=listener_port)
         )
         return getattr(getattr(response, "body", response), "server_certificate_id", None)
