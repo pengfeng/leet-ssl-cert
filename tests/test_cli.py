@@ -58,7 +58,7 @@ def test_init_command_writes_config(monkeypatch, tmp_path) -> None:
         lambda **kwargs: InitResult(
             output_path=output_path,
             validated=False,
-            dns_provider="cloudflare",
+            dns_provider="aliyun",
             deployer="aws_acm",
         ),
     )
@@ -78,7 +78,7 @@ def test_init_command_writes_config(monkeypatch, tmp_path) -> None:
             "--domains",
             "example.com,www.example.com",
             "--dns-provider",
-            "cloudflare",
+            "aliyun",
             "--deployer",
             "aws_acm",
             "--region",
@@ -100,7 +100,7 @@ def test_init_command_prefills_prompts_from_cache(monkeypatch, tmp_path) -> None
     (cache_dir / ".init-inputs.json").write_text(
         json.dumps(
             {
-                "dns_provider": "cloudflare",
+                "dns_provider": "aliyun",
                 "deployer": "aws_acm",
                 "email": "admin@example.com",
                 "certificate_name": "site",
@@ -138,7 +138,7 @@ def test_init_command_prefills_prompts_from_cache(monkeypatch, tmp_path) -> None
     )
 
     assert result.exit_code == 0
-    assert captured_kwargs["dns_provider"] == "cloudflare"
+    assert captured_kwargs["dns_provider"] == "aliyun"
     assert captured_kwargs["deployer"] == "aws_acm"
     assert captured_kwargs["email"] == "admin@example.com"
     assert captured_kwargs["certificate_name"] == "site"

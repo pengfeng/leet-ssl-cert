@@ -9,17 +9,15 @@ from typing import Any
 
 import yaml
 
-from .deployer import get_deployer
-from .dns import get_dns_provider
-from .errors import ConfigError
-from .models import InitResult
+from leet_ssl_cert.errors import ConfigError
+from leet_ssl_cert.models import InitResult
+from leet_ssl_cert.providers import get_deployer, get_dns_provider
 
-DNS_PROVIDER_CHOICES = ("aliyun", "cloudflare", "aws")
+DNS_PROVIDER_CHOICES = ("aliyun", "aws")
 DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb")
 ENV_VAR_DEFINITIONS = {
     "ALICLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
     "ALICLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
-    "CLOUDFLARE_API_TOKEN": "Cloudflare API token with permission to list zones and manage DNS records.",
     "AWS_ACCESS_KEY_ID": "AWS access key ID used by boto3 when using environment-based credentials.",
     "AWS_SECRET_ACCESS_KEY": "AWS secret access key paired with AWS_ACCESS_KEY_ID.",
     "AWS_SESSION_TOKEN": "Temporary AWS session token used with short-lived credentials.",
@@ -30,7 +28,6 @@ ENV_VAR_DEFINITIONS = {
 SUPPORTED_SETUP_ENV_VARS = [
     "ALICLOUD_ACCESS_KEY_ID",
     "ALICLOUD_ACCESS_KEY_SECRET",
-    "CLOUDFLARE_API_TOKEN",
     "AWS_ACCESS_KEY_ID",
     "AWS_SECRET_ACCESS_KEY",
     "AWS_SESSION_TOKEN",
@@ -155,8 +152,6 @@ def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
             "access_key_id": "${ALICLOUD_ACCESS_KEY_ID}",
             "access_key_secret": "${ALICLOUD_ACCESS_KEY_SECRET}",
         }
-    if namespace == "cloudflare":
-        return {"api_token": "${CLOUDFLARE_API_TOKEN}"}
     if namespace == "aws":
         return {}
     return {}
@@ -174,9 +169,6 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
         if region:
             settings["region"] = region
         return settings
-    if namespace == "cloudflare":
-        api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-        return {"api_token": api_token}
     if namespace == "aws":
         settings: dict[str, Any] = {}
         for env_name, key in (
@@ -245,8 +237,6 @@ def _redact_env_value(value: str) -> str:
 def _provider_env_vars(namespace: str) -> list[str]:
     if namespace == "aliyun":
         return ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"]
-    if namespace == "cloudflare":
-        return ["CLOUDFLARE_API_TOKEN"]
     if namespace == "aws":
         return []
     return []

@@ -14,12 +14,12 @@ def test_build_init_config_includes_provider_placeholders() -> None:
         email="admin@example.com",
         certificate_name="site",
         domains=["example.com", "www.example.com"],
-        dns_provider="cloudflare",
+        dns_provider="aliyun",
         deployer="aws_acm",
         deploy_settings={"region": "us-east-1"},
     )
 
-    assert document["providers"]["cloudflare"]["api_token"] == "${CLOUDFLARE_API_TOKEN}"
+    assert document["providers"]["aliyun"]["access_key_id"] == "${ALICLOUD_ACCESS_KEY_ID}"
     assert document["providers"]["aws"] == {}
     assert document["certificates"][0]["deploy"][0]["provider"] == "aws_acm"
 

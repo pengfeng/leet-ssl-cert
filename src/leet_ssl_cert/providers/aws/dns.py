@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..errors import DNSError
-from .base import DNSProvider
+from leet_ssl_cert.errors import DNSError
+from leet_ssl_cert.providers.base import DNSProvider
 
 
 class AWSRoute53DNSProvider(DNSProvider):

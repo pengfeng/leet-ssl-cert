@@ -8,17 +8,17 @@ from typing import Any
 
 import click
 
-from .bootstrap import (
+from leet_ssl_cert.bootstrap import (
     DEPLOYER_CHOICES,
     DNS_PROVIDER_CHOICES,
     initialize_config,
     preflight_provider_environment,
     print_setup_environment_snapshot,
 )
-from .config import load_config
-from .errors import LeetSSLCertError
-from .scheduler import build_cron_entry
-from .service import CertificateService
+from leet_ssl_cert.config import load_config
+from leet_ssl_cert.errors import LeetSSLCertError
+from leet_ssl_cert.scheduler import build_cron_entry
+from leet_ssl_cert.service import CertificateService
 
 POPULAR_REGIONS = {
     "aliyun": [
