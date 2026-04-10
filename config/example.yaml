@@ -21,7 +21,18 @@ certificates:
         load_balancer_id: lb-xxxxxxxxxxxxx
         listener_port: 443
 
+  - name: api-site
+    domains:
+      - api.example.com
+    dns_provider: cloudflare
+    deploy:
+      - provider: aws_acm
+        region: us-east-1
+
 providers:
   aliyun:
     access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
     access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
+  cloudflare:
+    api_token: ${CLOUDFLARE_API_TOKEN}
+  aws: {}

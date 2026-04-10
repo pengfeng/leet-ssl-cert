@@ -16,6 +16,9 @@ class DNSProvider(ABC):
     def __init__(self, settings: dict[str, Any] | None = None) -> None:
         self.settings = settings or {}
 
+    def validate_credentials(self) -> None:
+        """Validate credentials or connectivity for init/setup flows."""
+
     @abstractmethod
     def create_txt_record(self, zone: str, record_name: str, value: str) -> None:
         """Create a TXT record for ACME DNS validation."""

@@ -17,6 +17,9 @@ class CertificateDeployer(ABC):
     def __init__(self, settings: dict[str, Any] | None = None) -> None:
         self.settings = settings or {}
 
+    def validate_credentials(self) -> None:
+        """Validate credentials or connectivity for init/setup flows."""
+
     @abstractmethod
     def upload_certificate(self, name: str, cert_pem: str, key_pem: str) -> str:
         """Upload a certificate and return the cloud provider certificate id."""
