@@ -52,3 +52,19 @@ def test_preflight_provider_environment_reports_missing_env_vars(
     assert "ALICLOUD_ACCESS_KEY_ID" in captured.err
     assert "Alibaba Cloud access key ID used to authenticate API requests." in captured.err
     assert "value: <not set>" in captured.err
+
+
+def test_preflight_provider_environment_redacts_sensitive_env_values(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("ALICLOUD_ACCESS_KEY_ID", "abc123456def")
+    monkeypatch.setenv("ALICLOUD_ACCESS_KEY_SECRET", "sec123456ret")
+
+    preflight_provider_environment(dns_provider="aliyun", deployer="aliyun_clb")
+
+    captured = capsys.readouterr()
+    assert "value: abcxxxxxxdef" in captured.err
+    assert "value: secxxxxxxret" in captured.err
+    assert "abc123456def" not in captured.err
+    assert "sec123456ret" not in captured.err

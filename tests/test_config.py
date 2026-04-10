@@ -83,4 +83,5 @@ providers:
 
     captured = capsys.readouterr()
     assert "TEST_ACCESS_KEY" in captured.err
-    assert "value: resolved-key" in captured.err
+    assert "value: resxxxxxxkey" in captured.err
+    assert "resolved-key" not in captured.err

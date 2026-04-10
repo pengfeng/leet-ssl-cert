@@ -212,7 +212,7 @@ def _emit_env_report(env_names: list[str], *, fail_on_missing: bool) -> None:
         value = os.getenv(env_name)
         definition = ENV_VAR_DEFINITIONS.get(env_name, "Environment variable referenced by the configuration or provider setup.")
         stream.write(f"- {env_name}: {definition}\n")
-        stream.write(f"  value: {value if value is not None else '<not set>'}\n")
+        stream.write(f"  value: {_display_env_value(env_name, value)}\n")
         if value in (None, ""):
             missing.append(env_name)
     if missing and fail_on_missing:
@@ -220,6 +220,26 @@ def _emit_env_report(env_names: list[str], *, fail_on_missing: bool) -> None:
         for env_name in missing:
             stream.write(f"- {env_name}\n")
         raise ConfigError("Missing required environment variables. Set the variables listed above and retry.")
+
+
+def _display_env_value(env_name: str, value: str | None) -> str:
+    if value is None:
+        return "<not set>"
+    if _is_sensitive_env_name(env_name):
+        return _redact_env_value(value)
+    return value
+
+
+def _is_sensitive_env_name(env_name: str) -> bool:
+    sensitive_tokens = ("KEY", "SECRET", "TOKEN", "PASSWORD")
+    env_tokens = env_name.upper().split("_")
+    return any(token in env_tokens for token in sensitive_tokens)
+
+
+def _redact_env_value(value: str) -> str:
+    if len(value) <= 6:
+        return "x" * len(value)
+    return f"{value[:3]}{'x' * (len(value) - 6)}{value[-3:]}"
 
 
 def _provider_env_vars(namespace: str) -> list[str]:
