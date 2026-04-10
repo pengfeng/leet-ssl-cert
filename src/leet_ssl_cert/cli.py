@@ -15,7 +15,6 @@ from leet_ssl_cert.bootstrap import (
     INIT_PROVIDER_CHOICES,
     initialize_config,
     preflight_provider_namespaces,
-    print_provider_environment_snapshot,
 )
 from leet_ssl_cert.config import load_config
 from leet_ssl_cert.errors import LeetSSLCertError
@@ -36,6 +35,13 @@ POPULAR_REGIONS = {
         ("eu-west-1", "Ireland"),
         ("ap-southeast-1", "Singapore"),
         ("ap-northeast-1", "Tokyo"),
+    ],
+    "gcp": [
+        ("us-central1", "Iowa"),
+        ("us-east1", "South Carolina"),
+        ("us-west1", "Oregon"),
+        ("europe-west1", "Belgium"),
+        ("asia-southeast1", "Singapore"),
     ],
 }
 INIT_INPUT_CACHE_PATH = Path(".leet") / ".init-inputs.json"
@@ -116,6 +122,10 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 @click.option("--listener-port", type=int, help="HTTPS listener port.")
 @click.option("--listener-arn", help="AWS ELBv2 listener ARN.")
 @click.option("--load-balancer-name", help="AWS Classic ELB name.")
+@click.option("--project", help="GCP project id.")
+@click.option("--scope", "gcp_scope", type=click.Choice(("global", "regional")), help="GCP load balancer scope.")
+@click.option("--target-https-proxy", help="GCP target HTTPS proxy name.")
+@click.option("--target-ssl-proxy", help="GCP target SSL proxy name.")
 def init(
     provider: str,
     output_path: Path,
@@ -133,14 +143,13 @@ def init(
     listener_port: int | None,
     listener_arn: str | None,
     load_balancer_name: str | None,
+    project: str | None,
+    gcp_scope: str | None,
+    target_https_proxy: str | None,
+    target_ssl_proxy: str | None,
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
     try:
-        if provider == "gcp":
-            if not skip_validation:
-                print_provider_environment_snapshot(provider)
-            raise click.ClickException("GCP support is planned but not implemented yet.")
-
         deployer_choices = DEPLOYER_CHOICES_BY_PROVIDER[provider]
         init_input_cache = _load_init_input_cache()
         _remember_init_inputs(
@@ -156,6 +165,10 @@ def init(
             listener_port=listener_port,
             listener_arn=listener_arn,
             load_balancer_name=load_balancer_name,
+            project=project,
+            gcp_scope=gcp_scope,
+            target_https_proxy=target_https_proxy,
+            target_ssl_proxy=target_ssl_proxy,
         )
 
         dns_provider = dns_provider or _prompt_with_help(
@@ -216,6 +229,10 @@ def init(
             listener_port=listener_port,
             listener_arn=listener_arn,
             load_balancer_name=load_balancer_name,
+            project=project,
+            gcp_scope=gcp_scope,
+            target_https_proxy=target_https_proxy,
+            target_ssl_proxy=target_ssl_proxy,
         )
         output_path, force = _resolve_init_output_path(output_path, force, concise=concise)
         result = initialize_config(
@@ -313,6 +330,10 @@ def _collect_deploy_settings(
     listener_port: int | None,
     listener_arn: str | None,
     load_balancer_name: str | None,
+    project: str | None,
+    gcp_scope: str | None,
+    target_https_proxy: str | None,
+    target_ssl_proxy: str | None,
 ) -> dict[str, object]:
     settings: dict[str, object] = {}
     if deployer in {"aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb"}:
@@ -391,6 +412,59 @@ def _collect_deploy_settings(
                 cache=cache,
                 cache_key="listener_port",
             )
+    elif deployer == "gcp_lb":
+        settings["project"] = project or _prompt_with_help(
+            "GCP project id",
+            "This is the Google Cloud project that owns the DNS zone, certificate resource, and target proxy.",
+            concise=concise,
+            cache=cache,
+            cache_key="project",
+        )
+        target_mode = "target_https_proxy" if not target_ssl_proxy else "target_ssl_proxy"
+        if not target_https_proxy and not target_ssl_proxy:
+            target_mode = _prompt_with_help(
+                "Target proxy type",
+                "Choose target_https_proxy for HTTPS load balancers or target_ssl_proxy for SSL proxy load balancers.",
+                concise=concise,
+                type=click.Choice(("target_https_proxy", "target_ssl_proxy")),
+                default="target_https_proxy",
+                cache=cache,
+                cache_key="gcp_target_mode",
+            )
+        if target_mode == "target_ssl_proxy":
+            settings["scope"] = "global"
+            settings["target_ssl_proxy"] = target_ssl_proxy or _prompt_with_help(
+                "Target SSL proxy",
+                "This is the global Target SSL Proxy name that should use the uploaded certificate.",
+                concise=concise,
+                cache=cache,
+                cache_key="target_ssl_proxy",
+            )
+            return settings
+        scope = gcp_scope or _prompt_with_help(
+            "Scope",
+            "Choose global for the common external HTTPS load balancer path, or regional for regional target HTTPS proxies.",
+            concise=concise,
+            type=click.Choice(("global", "regional")),
+            default="global",
+            cache=cache,
+            cache_key="gcp_scope",
+        )
+        settings["scope"] = scope
+        if scope == "regional":
+            settings["region"] = region or _prompt_region(
+                "gcp",
+                concise=concise,
+                cache=cache,
+                cache_key="region",
+            )
+        settings["target_https_proxy"] = target_https_proxy or _prompt_with_help(
+            "Target HTTPS proxy",
+            "This is the Target HTTPS Proxy name that should use the uploaded certificate.",
+            concise=concise,
+            cache=cache,
+            cache_key="target_https_proxy",
+        )
     return settings
 
 

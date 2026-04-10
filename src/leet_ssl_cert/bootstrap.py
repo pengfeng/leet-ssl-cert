@@ -14,12 +14,12 @@ from leet_ssl_cert.models import InitResult
 from leet_ssl_cert.providers import get_deployer, get_dns_provider
 
 INIT_PROVIDER_CHOICES = ("aliyun", "aws", "gcp")
-DNS_PROVIDER_CHOICES = ("aliyun", "aws")
-DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb")
+DNS_PROVIDER_CHOICES = ("aliyun", "aws", "gcp")
+DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb", "gcp_lb")
 DEPLOYER_CHOICES_BY_PROVIDER = {
     "aliyun": ("aliyun_clb", "aliyun_alb"),
     "aws": ("aws_acm", "aws_elb"),
-    "gcp": (),
+    "gcp": ("gcp_lb",),
 }
 ENV_VAR_DEFINITIONS = {
     "ALICLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
@@ -31,7 +31,7 @@ ENV_VAR_DEFINITIONS = {
     "AWS_REGION": "Default AWS region used by boto3 clients.",
     "AWS_DEFAULT_REGION": "Fallback AWS region used by boto3 when AWS_REGION is unset.",
     "GOOGLE_APPLICATION_CREDENTIALS": "Path to a Google Cloud service account JSON key for Application Default Credentials.",
-    "GCP_PROJECT": "Google Cloud project ID used by the planned GCP provider.",
+    "GCP_PROJECT": "Google Cloud project ID used by the GCP provider.",
     "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID recognized by Google Cloud SDKs.",
 }
 SETUP_ENV_VARS_BY_PROVIDER = {
@@ -190,6 +190,8 @@ def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
         }
     if namespace == "aws":
         return {}
+    if namespace == "gcp":
+        return {"project": "${GCP_PROJECT}"}
     return {}
 
 
@@ -219,6 +221,12 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
         region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or deploy_settings.get("region")
         if region:
             settings["region"] = region
+        return settings
+    if namespace == "gcp":
+        settings: dict[str, Any] = {}
+        project = os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or deploy_settings.get("project")
+        if project:
+            settings["project"] = project
         return settings
     return {}
 

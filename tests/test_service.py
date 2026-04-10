@@ -175,6 +175,57 @@ def test_deploy_uses_aws_provider_namespace(tmp_path: Path) -> None:
     assert captured_settings[0]["region"] == "us-east-1"
 
 
+def test_deploy_uses_gcp_provider_namespace(tmp_path: Path) -> None:
+    captured_settings: list[dict[str, object]] = []
+
+    class CapturingDeployer(FakeDeployer):
+        def __init__(self, settings: dict[str, object] | None = None) -> None:
+            super().__init__(settings)
+            captured_settings.append(self.settings)
+
+    config = AppConfig(
+        account=AccountConfig(email="admin@example.com"),
+        acme=AcmeConfig(renewal_days=30),
+        storage=StorageConfig(base_dir=tmp_path / "state" / "certs"),
+        certificates=[
+            CertificateConfig(
+                name="site",
+                domains=["example.com"],
+                dns_provider="gcp",
+                deploy=[
+                    DeployTargetConfig(
+                        provider="gcp_lb",
+                        settings={"scope": "global", "target_https_proxy": "edge-proxy"},
+                    )
+                ],
+            )
+        ],
+        providers={"gcp": {"project": "my-gcp-project"}},
+        path=tmp_path / "config.yaml",
+    )
+    storage = CertificateStorage(config.storage.base_dir)
+    cert_pem, key_pem = build_self_signed_cert("example.com", days=90)
+    storage.save_certificate_bundle(
+        name="site",
+        certificate_pem=cert_pem,
+        private_key_pem=key_pem,
+        domains=["example.com"],
+    )
+    service = CertificateService(
+        config,
+        storage=storage,
+        acme_manager=FakeAcmeManager(),
+        dns_factory=lambda name, settings: object(),
+        deployer_factory=lambda name, settings: CapturingDeployer(settings),
+    )
+
+    service.deploy()
+
+    assert captured_settings[0]["project"] == "my-gcp-project"
+    assert captured_settings[0]["scope"] == "global"
+    assert captured_settings[0]["target_https_proxy"] == "edge-proxy"
+
+
 def test_deploy_wraps_provider_exceptions(tmp_path: Path) -> None:
     class FailingDeployer(FakeDeployer):
         def upload_certificate(self, name: str, cert_pem: str, key_pem: str) -> str:

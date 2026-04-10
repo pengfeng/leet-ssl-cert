@@ -12,7 +12,7 @@ Powered by ACME (Let's Encrypt) with DNS-01 challenges.
 |---|---|---|---|
 | Alibaba Cloud | Aliyun DNS | CLB, ALB | [Aliyun Guide](docs/aliyun.guide.md) |
 | AWS | Route 53 | ACM, ELB/ALB | [AWS Guide](docs/aws.guide.md) |
-| GCP | Cloud DNS | *(planned)* | [GCP Guide](docs/gcp.guide.md) |
+| GCP | Cloud DNS | HTTPS Proxy, SSL Proxy | [GCP Guide](docs/gcp.guide.md) |
 
 ## Requirements
 
@@ -26,9 +26,10 @@ Powered by ACME (Let's Encrypt) with DNS-01 challenges.
 python3 -m venv .venv
 source .venv/bin/activate
 
-# With a specific provider
+# With a supported provider
 pip install '.[aliyun]'    # Alibaba Cloud
 pip install '.[aws]'       # AWS
+pip install '.[gcp]'       # Google Cloud
 
 # Or everything
 pip install '.[all]'
@@ -38,7 +39,7 @@ pip install '.[all]'
 
 ### 1. Set credentials
 
-See the provider guide for your cloud: [Aliyun](docs/aliyun.guide.md) | [AWS](docs/aws.guide.md)
+See the provider guide for your cloud: [Aliyun](docs/aliyun.guide.md) | [AWS](docs/aws.guide.md) | [GCP](docs/gcp.guide.md)
 
 ### 2. Create a config file
 
@@ -48,6 +49,8 @@ Generate one interactively:
 leet-ssl-cert init aliyun
 # or
 leet-ssl-cert init aws
+# or
+leet-ssl-cert init gcp
 ```
 
 `<provider>` is the deployment cloud provider. The init flow asks for the DNS provider separately and only offers deployers from the selected cloud.
@@ -104,6 +107,7 @@ run --dry-run            # Check issuance path without deploying
 deploy --name my-site    # Deploy only one certificate
 init aliyun --skip-validation   # Skip provider credential checks
 init aws --concise              # Short prompts without explanations
+init gcp --project my-project --target-https-proxy edge-proxy
 ```
 
 ## Configuration
@@ -146,7 +150,7 @@ Environment variables in `${VAR_NAME}` form are resolved at load time. See [conf
 For provider-specific config fields (regions, listener IDs, load balancer IDs), see the provider guides:
 - [Alibaba Cloud (Aliyun)](docs/aliyun.guide.md)
 - [AWS](docs/aws.guide.md)
-- [GCP](docs/gcp.guide.md) *(planned)*
+- [GCP](docs/gcp.guide.md)
 
 ## Local State
 

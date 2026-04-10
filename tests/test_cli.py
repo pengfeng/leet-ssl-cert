@@ -405,14 +405,55 @@ def test_init_requires_provider() -> None:
     assert "Missing argument 'PROVIDER'" in result.output
 
 
-def test_init_gcp_reports_planned_support(monkeypatch, tmp_path) -> None:
-    events: list[str] = []
+def test_init_gcp_command_writes_config(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "print_provider_environment_snapshot", lambda provider: events.append(f"snapshot:{provider}"))
+    output_path = tmp_path / "leet-ssl-cert.yaml"
+    captured_kwargs = {}
+
+    def fake_initialize_config(**kwargs):
+        captured_kwargs.update(kwargs)
+        return InitResult(
+            output_path=kwargs["output_path"],
+            validated=False,
+            dns_provider=kwargs["dns_provider"],
+            deployer=kwargs["deployer"],
+        )
+
+    monkeypatch.setattr(cli, "initialize_config", fake_initialize_config)
     runner = CliRunner()
 
-    result = runner.invoke(cli.main, ["init", "gcp"])
+    result = runner.invoke(
+        cli.main,
+        [
+            "init",
+            "gcp",
+            "--output",
+            str(output_path),
+            "--skip-validation",
+            "--email",
+            "admin@example.com",
+            "--name",
+            "site",
+            "--domains",
+            "example.com",
+            "--dns-provider",
+            "gcp",
+            "--deployer",
+            "gcp_lb",
+            "--project",
+            "my-gcp-project",
+            "--scope",
+            "global",
+            "--target-https-proxy",
+            "edge-proxy",
+        ],
+    )
 
-    assert result.exit_code != 0
-    assert "GCP support is planned but not implemented yet." in result.output
-    assert events == ["snapshot:gcp"]
+    assert result.exit_code == 0
+    assert captured_kwargs["dns_provider"] == "gcp"
+    assert captured_kwargs["deployer"] == "gcp_lb"
+    assert captured_kwargs["deploy_settings"] == {
+        "project": "my-gcp-project",
+        "scope": "global",
+        "target_https_proxy": "edge-proxy",
+    }

@@ -1,18 +1,18 @@
 # Google Cloud (GCP) Provider Guide
 
-> **Status**: GCP support is not yet implemented in `leet-ssl-cert`. This guide describes the planned scope and the GCP SDKs / credentials that will be used.
+This guide covers how to set up Google Cloud credentials and configure `leet-ssl-cert` for Cloud DNS validation and Google Cloud load balancer certificate deployment.
 
-## Planned Support
+## Supported Features
 
 | Feature | GCP SDK | Status |
 |---|---|---|
-| Cloud DNS (DNS-01 challenges) | `google-cloud-dns` | Planned |
-| Certificate Manager deployment | `google-cloud-certificate-manager` | Planned |
-| Cloud Load Balancing binding | `google-cloud-compute` | Planned |
+| Cloud DNS (DNS-01 challenges) | `google-cloud-dns` | Implemented |
+| Self-managed SSL certificate upload | `google-cloud-compute` | Implemented |
+| Target HTTPS Proxy binding | `google-cloud-compute` | Implemented |
+| Target SSL Proxy binding | `google-cloud-compute` | Implemented |
+| Certificate Manager / certificate maps | `google-cloud-certificate-manager` | Not yet implemented |
 
-## Install (Preview)
-
-Once implemented, GCP support will be installed via:
+## Install
 
 ```bash
 python3 -m venv .venv
@@ -20,96 +20,119 @@ source .venv/bin/activate
 pip install '.[gcp]'
 ```
 
-This will pull in the Google Cloud Python SDKs listed above.
-
 ## Credentials
 
-All Google Cloud Python SDKs authenticate via [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials). You can provide credentials in several ways:
+The Google Cloud SDKs used by `leet-ssl-cert` authenticate through [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials).
 
-### Option 1 -- Service Account Key (recommended for servers)
+### Option 1 -- Service Account Key
 
 1. Go to [GCP Console > IAM > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
 2. Select or create a service account
 3. Go to **Keys** > **Add Key** > **Create new key** > **JSON**
-4. Save the downloaded JSON file and set the environment variable:
+4. Save the downloaded JSON file and set:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 export GCP_PROJECT=your-project-id
 ```
 
-### Option 2 -- gcloud CLI (for local development)
+### Option 2 -- gcloud CLI
 
 ```bash
 gcloud auth application-default login
 gcloud config set project your-project-id
 ```
 
-### Option 3 -- Workload Identity (on GCP compute)
+### Option 3 -- Workload Identity
 
-No configuration needed. The SDK automatically picks up credentials on GKE, Cloud Run, Compute Engine, and Cloud Functions.
+No additional configuration is needed on GKE, Cloud Run, Compute Engine, and other GCP runtimes that already expose ADC.
 
-### Required IAM Roles
+## Required IAM Roles
 
 | Feature | IAM Role |
 |---|---|
 | Cloud DNS | `roles/dns.admin` |
-| Certificate Manager | `roles/certificatemanager.editor` |
-| Load Balancing | `roles/compute.loadBalancerAdmin` |
+| SSL certificate upload / HTTPS proxy binding | `roles/compute.loadBalancerAdmin` |
 
-## GCP Load Balancer Products
+## Deployer Scope
 
-For reference, these are the GCP load balancer types where TLS termination applies:
+The current GCP deployer is `gcp_lb`. It uses Compute Engine SSL certificate resources and can bind them to:
 
-### External Application Load Balancer (HTTP/S)
+- Global `target_https_proxy`
+- Regional `target_https_proxy`
+- Global `target_ssl_proxy`
 
-- The most common choice for HTTPS workloads
-- TLS certificates are managed through **Certificate Manager** or the older **SSL Certificates** resource
-- Supports both Google-managed and self-managed certificates
-- Console: [Load Balancing](https://console.cloud.google.com/net-services/loadbalancing)
+Certificate Manager certificate maps are not wired into this deployer yet.
 
-### Regional External Application Load Balancer
+## Config
 
-- Same as above but scoped to a single region
-- Uses the same certificate management approach
-
-### External Proxy Network Load Balancer (SSL Proxy)
-
-- Layer 4 TLS termination
-- Uses the same SSL certificate resources
-
-### Key Concepts
-
-- **Target HTTPS Proxy**: the resource that holds the SSL certificate reference for HTTP/S load balancers
-- **Certificate Manager Certificate Map**: the newer way to map certificates to load balancers
-- **SSL Certificate resource**: the legacy way to attach certificates (still widely used)
-
-## Config (Preview)
-
-The config format will follow the same pattern as other providers:
+### Global HTTPS proxy
 
 ```yaml
 certificates:
   - name: my-site
     domains:
       - example.com
+      - www.example.com
     dns_provider: gcp
     deploy:
       - provider: gcp_lb
         project: my-gcp-project
-        target_https_proxy: my-proxy
+        scope: global
+        target_https_proxy: edge-proxy
 
 providers:
   gcp:
     project: ${GCP_PROJECT}
 ```
 
-## Contributing
+### Regional HTTPS proxy
 
-If you would like to contribute GCP support, create a new provider plugin at `src/leet_ssl_cert/providers/gcp/`:
+```yaml
+certificates:
+  - name: regional-site
+    domains:
+      - regional.example.com
+    dns_provider: gcp
+    deploy:
+      - provider: gcp_lb
+        project: my-gcp-project
+        scope: regional
+        region: us-central1
+        target_https_proxy: regional-edge-proxy
+```
 
-- `dns.py`: subclass `DNSProvider` from `leet_ssl_cert.providers.base`
-- `lb.py`: subclass `CertificateDeployer` from `leet_ssl_cert.providers.base`
-- `__init__.py`: register implementations with `register_dns_provider` and `register_deployer`
+### Global SSL proxy
 
-See the existing `providers/aws/` and `providers/aliyun/` packages for reference.
+```yaml
+certificates:
+  - name: tcp-site
+    domains:
+      - tcp.example.com
+    dns_provider: gcp
+    deploy:
+      - provider: gcp_lb
+        project: my-gcp-project
+        scope: global
+        target_ssl_proxy: ssl-proxy
+```
+
+## Init Examples
+
+```bash
+leet-ssl-cert init gcp
+
+# Or pass the deployment target directly
+leet-ssl-cert init gcp \
+  --dns-provider gcp \
+  --deployer gcp_lb \
+  --project my-gcp-project \
+  --scope global \
+  --target-https-proxy edge-proxy
+```
+
+## Notes
+
+- `gcp_lb` stores self-managed certificates in Compute Engine SSL certificate resources.
+- Regional mode currently supports only `target_https_proxy`.
+- If `project` is omitted from config, the tool falls back to `GCP_PROJECT`, `GOOGLE_CLOUD_PROJECT`, or the project discovered from ADC.

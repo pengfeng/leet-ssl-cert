@@ -28,8 +28,12 @@ aliyun = [
 aws = [
     "boto3>=1.26",
 ]
+gcp = [
+    "google-cloud-compute>=1.20",
+    "google-cloud-dns>=0.35",
+]
 all = [
-    "leet-ssl-cert[aliyun,aws]",
+    "leet-ssl-cert[aliyun,aws,gcp]",
 ]
 
 [project.scripts]

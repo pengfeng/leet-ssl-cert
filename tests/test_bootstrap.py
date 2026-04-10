@@ -29,6 +29,20 @@ def test_build_init_config_includes_provider_placeholders() -> None:
     assert document["certificates"][0]["deploy"][0]["provider"] == "aws_acm"
 
 
+def test_build_init_config_includes_gcp_project_placeholder() -> None:
+    document = build_init_config(
+        email="admin@example.com",
+        certificate_name="site",
+        domains=["example.com"],
+        dns_provider="gcp",
+        deployer="gcp_lb",
+        deploy_settings={"project": "my-gcp-project", "scope": "global", "target_https_proxy": "edge-proxy"},
+    )
+
+    assert document["providers"]["gcp"]["project"] == "${GCP_PROJECT}"
+    assert document["certificates"][0]["deploy"][0]["provider"] == "gcp_lb"
+
+
 def test_write_init_config_writes_yaml(tmp_path: Path) -> None:
     output = tmp_path / "leet-ssl-cert.yaml"
     path = write_init_config(

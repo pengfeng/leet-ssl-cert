@@ -48,3 +48,4 @@ def get_deployer(name: str, settings: dict[str, Any] | None = None) -> Certifica
 # Import provider packages to trigger registration.
 import leet_ssl_cert.providers.aliyun  # noqa: E402, F401
 import leet_ssl_cert.providers.aws  # noqa: E402, F401
+import leet_ssl_cert.providers.gcp  # noqa: E402, F401
