@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from cryptography import x509
+import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
@@ -16,6 +17,7 @@ from leet_ssl_cert.config import (
     DeployTargetConfig,
     StorageConfig,
 )
+from leet_ssl_cert.errors import DeployError
 from leet_ssl_cert.models import DeployResult, IssuedCertificate
 from leet_ssl_cert.service import CertificateService
 from leet_ssl_cert.storage import CertificateStorage
@@ -171,6 +173,32 @@ def test_deploy_uses_aws_provider_namespace(tmp_path: Path) -> None:
 
     assert captured_settings[0]["profile"] == "default"
     assert captured_settings[0]["region"] == "us-east-1"
+
+
+def test_deploy_wraps_provider_exceptions(tmp_path: Path) -> None:
+    class FailingDeployer(FakeDeployer):
+        def upload_certificate(self, name: str, cert_pem: str, key_pem: str) -> str:
+            raise RuntimeError("Connection reset by peer")
+
+    config = build_config(tmp_path)
+    storage = CertificateStorage(config.storage.base_dir)
+    cert_pem, key_pem = build_self_signed_cert("example.com", days=90)
+    storage.save_certificate_bundle(
+        name="site",
+        certificate_pem=cert_pem,
+        private_key_pem=key_pem,
+        domains=["example.com"],
+    )
+    service = CertificateService(
+        config,
+        storage=storage,
+        acme_manager=FakeAcmeManager(),
+        dns_factory=lambda name, settings: object(),
+        deployer_factory=lambda name, settings: FailingDeployer(settings),
+    )
+
+    with pytest.raises(DeployError, match="Deploy failed for site via aliyun_clb"):
+        service.deploy()
 
 
 def build_config(tmp_path: Path) -> AppConfig:
