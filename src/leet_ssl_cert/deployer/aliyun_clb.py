@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import os
+import re
 from typing import Any
 
 from ..errors import DeployError
 from ..models import DeployResult
 from .base import CertificateDeployer
+
+CERT_PATTERN = re.compile(
+    r"-----BEGIN CERTIFICATE-----\s+.*?-----END CERTIFICATE-----\s*",
+    re.DOTALL,
+)
 
 
 class AliyunCLBDeployer(CertificateDeployer):
@@ -33,7 +39,7 @@ class AliyunCLBDeployer(CertificateDeployer):
         request = request_cls(
             region_id=self._region_id(),
             server_certificate_name=f"leet-{name}-{timestamp}",
-            server_certificate=cert_pem,
+            server_certificate=_leaf_certificate_pem(cert_pem),
             private_key=key_pem,
         )
         response = self._client_or_raise().upload_server_certificate(request)
@@ -132,3 +138,10 @@ class AliyunCLBDeployer(CertificateDeployer):
         if self._client is None:
             self._client = self._build_client()
         return self._client
+
+
+def _leaf_certificate_pem(cert_pem: str) -> str:
+    matches = CERT_PATTERN.findall(cert_pem)
+    if not matches:
+        raise DeployError("Certificate PEM did not contain any certificate blocks")
+    return matches[0].strip() + "\n"

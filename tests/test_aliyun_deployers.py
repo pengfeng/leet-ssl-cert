@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from leet_ssl_cert.deployer.aliyun_clb import AliyunCLBDeployer
+from leet_ssl_cert.deployer.aliyun_clb import AliyunCLBDeployer, _leaf_certificate_pem
 from leet_ssl_cert.errors import DeployError
 
 
@@ -79,3 +79,19 @@ def test_aliyun_clb_validate_request_includes_region(monkeypatch: pytest.MonkeyP
     deployer.validate_credentials()
 
     assert captured["region_id"] == "cn-shanghai"
+
+
+def test_aliyun_clb_uses_leaf_certificate_from_fullchain() -> None:
+    fullchain = """-----BEGIN CERTIFICATE-----
+leaf
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+intermediate
+-----END CERTIFICATE-----
+"""
+
+    leaf = _leaf_certificate_pem(fullchain)
+
+    assert leaf.count("-----BEGIN CERTIFICATE-----") == 1
+    assert "leaf" in leaf
+    assert "intermediate" not in leaf
