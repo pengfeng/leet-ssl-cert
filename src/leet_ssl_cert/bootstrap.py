@@ -9,34 +9,52 @@ from typing import Any
 
 import yaml
 
-from .deployer import get_deployer
-from .dns import get_dns_provider
-from .errors import ConfigError
-from .models import InitResult
+from leet_ssl_cert.errors import ConfigError
+from leet_ssl_cert.models import InitResult
+from leet_ssl_cert.providers import get_deployer, get_dns_provider
 
-DNS_PROVIDER_CHOICES = ("aliyun", "cloudflare", "aws")
-DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb")
+INIT_PROVIDER_CHOICES = ("aliyun", "aws", "gcp")
+DNS_PROVIDER_CHOICES = ("aliyun", "aws", "gcp", "godaddy")
+DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb", "gcp_lb")
+DEPLOYER_CHOICES_BY_PROVIDER = {
+    "aliyun": ("aliyun_clb", "aliyun_alb"),
+    "aws": ("aws_acm", "aws_elb"),
+    "gcp": ("gcp_lb",),
+}
 ENV_VAR_DEFINITIONS = {
     "ALICLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
     "ALICLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
-    "CLOUDFLARE_API_TOKEN": "Cloudflare API token with permission to list zones and manage DNS records.",
     "AWS_ACCESS_KEY_ID": "AWS access key ID used by boto3 when using environment-based credentials.",
     "AWS_SECRET_ACCESS_KEY": "AWS secret access key paired with AWS_ACCESS_KEY_ID.",
     "AWS_SESSION_TOKEN": "Temporary AWS session token used with short-lived credentials.",
     "AWS_PROFILE": "AWS shared credential profile name for boto3.",
     "AWS_REGION": "Default AWS region used by boto3 clients.",
     "AWS_DEFAULT_REGION": "Fallback AWS region used by boto3 when AWS_REGION is unset.",
+    "GOOGLE_APPLICATION_CREDENTIALS": "Path to a Google Cloud service account JSON key for Application Default Credentials.",
+    "GCP_PROJECT": "Google Cloud project ID used by the GCP provider.",
+    "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID recognized by Google Cloud SDKs.",
+    "GODADDY_API_KEY": "GoDaddy production API key used to authenticate Domains API requests.",
+    "GODADDY_API_SECRET": "GoDaddy production API secret paired with GODADDY_API_KEY.",
+    "GODADDY_SHOPPER_ID": "Optional GoDaddy shopper ID for reseller scenarios that require X-Shopper-Id.",
+    "GODADDY_API_BASE_URL": "Optional GoDaddy API base URL override, such as the OTE environment.",
+}
+SETUP_ENV_VARS_BY_PROVIDER = {
+    "aliyun": ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"],
+    "aws": [
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_PROFILE",
+        "AWS_REGION",
+        "AWS_DEFAULT_REGION",
+    ],
+    "gcp": ["GOOGLE_APPLICATION_CREDENTIALS", "GCP_PROJECT", "GOOGLE_CLOUD_PROJECT"],
+    "godaddy": ["GODADDY_API_KEY", "GODADDY_API_SECRET"],
 }
 SUPPORTED_SETUP_ENV_VARS = [
-    "ALICLOUD_ACCESS_KEY_ID",
-    "ALICLOUD_ACCESS_KEY_SECRET",
-    "CLOUDFLARE_API_TOKEN",
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "AWS_SESSION_TOKEN",
-    "AWS_PROFILE",
-    "AWS_REGION",
-    "AWS_DEFAULT_REGION",
+    env_name
+    for provider in dict.fromkeys((*INIT_PROVIDER_CHOICES, *DNS_PROVIDER_CHOICES))
+    for env_name in SETUP_ENV_VARS_BY_PROVIDER[provider]
 ]
 
 
@@ -131,7 +149,22 @@ def initialize_config(
 
 def preflight_provider_environment(*, dns_provider: str, deployer: str) -> None:
     """Print required env vars for init validation and fail early if any are missing."""
-    namespaces = {_provider_namespace(dns_provider), _provider_namespace(deployer)}
+    _preflight_provider_namespaces(
+        dns_provider_namespace=_provider_namespace(dns_provider),
+        deployment_provider_namespace=_provider_namespace(deployer),
+    )
+
+
+def preflight_provider_namespaces(*, dns_provider: str, deployment_provider: str) -> None:
+    """Print required env vars for init validation using DNS and deployment provider namespaces."""
+    _preflight_provider_namespaces(
+        dns_provider_namespace=_provider_namespace(dns_provider),
+        deployment_provider_namespace=_provider_namespace(deployment_provider),
+    )
+
+
+def _preflight_provider_namespaces(*, dns_provider_namespace: str, deployment_provider_namespace: str) -> None:
+    namespaces = {dns_provider_namespace, deployment_provider_namespace}
     env_names: list[str] = []
     for namespace in sorted(namespaces):
         env_names.extend(_provider_env_vars(namespace))
@@ -141,6 +174,11 @@ def preflight_provider_environment(*, dns_provider: str, deployer: str) -> None:
 def print_setup_environment_snapshot() -> None:
     """Print the env vars commonly used by supported providers before interactive setup starts."""
     _emit_env_report(SUPPORTED_SETUP_ENV_VARS, fail_on_missing=False)
+
+
+def print_provider_environment_snapshot(provider: str) -> None:
+    """Print the env vars commonly used by one provider before interactive setup starts."""
+    _emit_env_report(SETUP_ENV_VARS_BY_PROVIDER.get(provider, []), fail_on_missing=False)
 
 
 def _provider_namespace(provider_name: str) -> str:
@@ -155,10 +193,15 @@ def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
             "access_key_id": "${ALICLOUD_ACCESS_KEY_ID}",
             "access_key_secret": "${ALICLOUD_ACCESS_KEY_SECRET}",
         }
-    if namespace == "cloudflare":
-        return {"api_token": "${CLOUDFLARE_API_TOKEN}"}
     if namespace == "aws":
         return {}
+    if namespace == "gcp":
+        return {"project": "${GCP_PROJECT}"}
+    if namespace == "godaddy":
+        return {
+            "api_key": "${GODADDY_API_KEY}",
+            "api_secret": "${GODADDY_API_SECRET}",
+        }
     return {}
 
 
@@ -174,9 +217,6 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
         if region:
             settings["region"] = region
         return settings
-    if namespace == "cloudflare":
-        api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-        return {"api_token": api_token}
     if namespace == "aws":
         settings: dict[str, Any] = {}
         for env_name, key in (
@@ -191,6 +231,27 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
         region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or deploy_settings.get("region")
         if region:
             settings["region"] = region
+        return settings
+    if namespace == "gcp":
+        settings: dict[str, Any] = {}
+        project = os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or deploy_settings.get("project")
+        if project:
+            settings["project"] = project
+        return settings
+    if namespace == "godaddy":
+        settings: dict[str, Any] = {}
+        api_key = os.getenv("GODADDY_API_KEY")
+        api_secret = os.getenv("GODADDY_API_SECRET")
+        if api_key:
+            settings["api_key"] = api_key
+        if api_secret:
+            settings["api_secret"] = api_secret
+        shopper_id = os.getenv("GODADDY_SHOPPER_ID")
+        api_base_url = os.getenv("GODADDY_API_BASE_URL")
+        if shopper_id:
+            settings["shopper_id"] = shopper_id
+        if api_base_url:
+            settings["api_base_url"] = api_base_url
         return settings
     return {}
 
@@ -245,8 +306,6 @@ def _redact_env_value(value: str) -> str:
 def _provider_env_vars(namespace: str) -> list[str]:
     if namespace == "aliyun":
         return ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"]
-    if namespace == "cloudflare":
-        return ["CLOUDFLARE_API_TOKEN"]
     if namespace == "aws":
         return []
     return []

@@ -8,17 +8,18 @@ from typing import Any
 
 import click
 
-from .bootstrap import (
+from leet_ssl_cert.bootstrap import (
     DEPLOYER_CHOICES,
+    DEPLOYER_CHOICES_BY_PROVIDER,
     DNS_PROVIDER_CHOICES,
+    INIT_PROVIDER_CHOICES,
     initialize_config,
-    preflight_provider_environment,
-    print_setup_environment_snapshot,
+    preflight_provider_namespaces,
 )
-from .config import load_config
-from .errors import LeetSSLCertError
-from .scheduler import build_cron_entry
-from .service import CertificateService
+from leet_ssl_cert.config import load_config
+from leet_ssl_cert.errors import LeetSSLCertError
+from leet_ssl_cert.scheduler import build_cron_entry
+from leet_ssl_cert.service import CertificateService
 
 POPULAR_REGIONS = {
     "aliyun": [
@@ -34,6 +35,13 @@ POPULAR_REGIONS = {
         ("eu-west-1", "Ireland"),
         ("ap-southeast-1", "Singapore"),
         ("ap-northeast-1", "Tokyo"),
+    ],
+    "gcp": [
+        ("us-central1", "Iowa"),
+        ("us-east1", "South Carolina"),
+        ("us-west1", "Oregon"),
+        ("europe-west1", "Belgium"),
+        ("asia-southeast1", "Singapore"),
     ],
 }
 INIT_INPUT_CACHE_PATH = Path(".leet") / ".init-inputs.json"
@@ -98,6 +106,7 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 
 
 @main.command()
+@click.argument("provider", metavar="PROVIDER", type=click.Choice(INIT_PROVIDER_CHOICES))
 @click.option("--output", "output_path", default="leet-ssl-cert.yaml", show_default=True, type=click.Path(dir_okay=False, path_type=Path), help="Where to write the generated config.")
 @click.option("--force", is_flag=True, help="Overwrite an existing config file.")
 @click.option("--skip-validation", is_flag=True, help="Write the config without validating provider credentials.")
@@ -113,7 +122,12 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 @click.option("--listener-port", type=int, help="HTTPS listener port.")
 @click.option("--listener-arn", help="AWS ELBv2 listener ARN.")
 @click.option("--load-balancer-name", help="AWS Classic ELB name.")
+@click.option("--project", help="GCP project id.")
+@click.option("--scope", "gcp_scope", type=click.Choice(("global", "regional")), help="GCP load balancer scope.")
+@click.option("--target-https-proxy", help="GCP target HTTPS proxy name.")
+@click.option("--target-ssl-proxy", help="GCP target SSL proxy name.")
 def init(
+    provider: str,
     output_path: Path,
     force: bool,
     skip_validation: bool,
@@ -129,9 +143,14 @@ def init(
     listener_port: int | None,
     listener_arn: str | None,
     load_balancer_name: str | None,
+    project: str | None,
+    gcp_scope: str | None,
+    target_https_proxy: str | None,
+    target_ssl_proxy: str | None,
 ) -> None:
     """Interactively generate a config file and optionally validate credentials."""
     try:
+        deployer_choices = DEPLOYER_CHOICES_BY_PROVIDER[provider]
         init_input_cache = _load_init_input_cache()
         _remember_init_inputs(
             init_input_cache,
@@ -146,34 +165,38 @@ def init(
             listener_port=listener_port,
             listener_arn=listener_arn,
             load_balancer_name=load_balancer_name,
+            project=project,
+            gcp_scope=gcp_scope,
+            target_https_proxy=target_https_proxy,
+            target_ssl_proxy=target_ssl_proxy,
         )
-        validated_provider_selection = False
-        if not skip_validation:
-            if dns_provider and deployer:
-                preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
-                validated_provider_selection = True
-            else:
-                print_setup_environment_snapshot()
 
         dns_provider = dns_provider or _prompt_with_help(
             "DNS provider",
             "This is the DNS service where the tool will create temporary TXT records for ACME DNS-01 verification.",
             concise=concise,
             type=click.Choice(DNS_PROVIDER_CHOICES),
+            default=provider if provider in DNS_PROVIDER_CHOICES else None,
             cache=init_input_cache,
             cache_key="dns_provider",
         )
+        if not skip_validation:
+            preflight_provider_namespaces(dns_provider=dns_provider, deployment_provider=provider)
+
+        if deployer and deployer not in deployer_choices:
+            allowed_deployers = ", ".join(deployer_choices)
+            raise click.ClickException(
+                f"Deployment provider {deployer!r} is not supported for cloud provider {provider!r}. "
+                f"Choose one of: {allowed_deployers}."
+            )
         deployer = deployer or _prompt_with_help(
             "Deployment provider",
             "This is the cloud target where the issued certificate will be uploaded or attached after it is created.",
             concise=concise,
-            type=click.Choice(DEPLOYER_CHOICES),
+            type=click.Choice(deployer_choices),
             cache=init_input_cache,
             cache_key="deployer",
         )
-
-        if not skip_validation and not validated_provider_selection:
-            preflight_provider_environment(dns_provider=dns_provider, deployer=deployer)
 
         email = email or _prompt_with_help(
             "ACME account email",
@@ -206,7 +229,12 @@ def init(
             listener_port=listener_port,
             listener_arn=listener_arn,
             load_balancer_name=load_balancer_name,
+            project=project,
+            gcp_scope=gcp_scope,
+            target_https_proxy=target_https_proxy,
+            target_ssl_proxy=target_ssl_proxy,
         )
+        output_path, force = _resolve_init_output_path(output_path, force, concise=concise)
         result = initialize_config(
             email=email,
             certificate_name=certificate_name,
@@ -302,6 +330,10 @@ def _collect_deploy_settings(
     listener_port: int | None,
     listener_arn: str | None,
     load_balancer_name: str | None,
+    project: str | None,
+    gcp_scope: str | None,
+    target_https_proxy: str | None,
+    target_ssl_proxy: str | None,
 ) -> dict[str, object]:
     settings: dict[str, object] = {}
     if deployer in {"aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb"}:
@@ -380,7 +412,83 @@ def _collect_deploy_settings(
                 cache=cache,
                 cache_key="listener_port",
             )
+    elif deployer == "gcp_lb":
+        settings["project"] = project or _prompt_with_help(
+            "GCP project id",
+            "This is the Google Cloud project that owns the DNS zone, certificate resource, and target proxy.",
+            concise=concise,
+            cache=cache,
+            cache_key="project",
+        )
+        target_mode = "target_https_proxy" if not target_ssl_proxy else "target_ssl_proxy"
+        if not target_https_proxy and not target_ssl_proxy:
+            target_mode = _prompt_with_help(
+                "Target proxy type",
+                "Choose target_https_proxy for HTTPS load balancers or target_ssl_proxy for SSL proxy load balancers.",
+                concise=concise,
+                type=click.Choice(("target_https_proxy", "target_ssl_proxy")),
+                default="target_https_proxy",
+                cache=cache,
+                cache_key="gcp_target_mode",
+            )
+        if target_mode == "target_ssl_proxy":
+            settings["scope"] = "global"
+            settings["target_ssl_proxy"] = target_ssl_proxy or _prompt_with_help(
+                "Target SSL proxy",
+                "This is the global Target SSL Proxy name that should use the uploaded certificate.",
+                concise=concise,
+                cache=cache,
+                cache_key="target_ssl_proxy",
+            )
+            return settings
+        scope = gcp_scope or _prompt_with_help(
+            "Scope",
+            "Choose global for the common external HTTPS load balancer path, or regional for regional target HTTPS proxies.",
+            concise=concise,
+            type=click.Choice(("global", "regional")),
+            default="global",
+            cache=cache,
+            cache_key="gcp_scope",
+        )
+        settings["scope"] = scope
+        if scope == "regional":
+            settings["region"] = region or _prompt_region(
+                "gcp",
+                concise=concise,
+                cache=cache,
+                cache_key="region",
+            )
+        settings["target_https_proxy"] = target_https_proxy or _prompt_with_help(
+            "Target HTTPS proxy",
+            "This is the Target HTTPS Proxy name that should use the uploaded certificate.",
+            concise=concise,
+            cache=cache,
+            cache_key="target_https_proxy",
+        )
     return settings
+
+
+def _resolve_init_output_path(output_path: Path, force: bool, *, concise: bool) -> tuple[Path, bool]:
+    path = output_path.expanduser()
+    while path.exists() and not force:
+        if not concise:
+            click.echo(f"\nConfig file already exists: {path}")
+            click.echo("  Choose abort, overwrite, or different_file.")
+        choice = click.prompt(
+            "Existing config file action",
+            type=click.Choice(("abort", "overwrite", "different_file")),
+            default="different_file",
+        )
+        if choice == "abort":
+            raise click.Abort()
+        if choice == "overwrite":
+            return path, True
+        path = click.prompt(
+            "Output path",
+            type=click.Path(dir_okay=False, path_type=Path),
+            default=path.with_name(f"{path.stem}.new{path.suffix}"),
+        ).expanduser()
+    return path, force
 
 
 def _prompt_with_help(
