@@ -43,6 +43,21 @@ def test_build_init_config_includes_gcp_project_placeholder() -> None:
     assert document["certificates"][0]["deploy"][0]["provider"] == "gcp_lb"
 
 
+def test_build_init_config_includes_godaddy_placeholders() -> None:
+    document = build_init_config(
+        email="admin@example.com",
+        certificate_name="site",
+        domains=["example.com"],
+        dns_provider="godaddy",
+        deployer="gcp_lb",
+        deploy_settings={"project": "my-gcp-project", "scope": "global", "target_https_proxy": "edge-proxy"},
+    )
+
+    assert document["providers"]["godaddy"]["api_key"] == "${GODADDY_API_KEY}"
+    assert document["providers"]["godaddy"]["api_secret"] == "${GODADDY_API_SECRET}"
+    assert document["providers"]["gcp"]["project"] == "${GCP_PROJECT}"
+
+
 def test_write_init_config_writes_yaml(tmp_path: Path) -> None:
     output = tmp_path / "leet-ssl-cert.yaml"
     path = write_init_config(
@@ -102,3 +117,19 @@ def test_print_provider_environment_snapshot_is_scoped(
     assert "AWS_PROFILE" in captured.err
     assert "value: dev" in captured.err
     assert "ALICLOUD_ACCESS_KEY_ID" not in captured.err
+
+
+def test_preflight_provider_environment_reports_missing_godaddy_env_vars(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv("GODADDY_API_KEY", raising=False)
+    monkeypatch.delenv("GODADDY_API_SECRET", raising=False)
+    monkeypatch.setenv("GCP_PROJECT", "my-gcp-project")
+
+    with pytest.raises(ConfigError, match="Missing required environment variables"):
+        preflight_provider_environment(dns_provider="godaddy", deployer="gcp_lb")
+
+    captured = capsys.readouterr()
+    assert "GODADDY_API_KEY" in captured.err
+    assert "GODADDY_API_SECRET" in captured.err

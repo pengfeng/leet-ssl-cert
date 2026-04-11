@@ -2,6 +2,8 @@
 
 This guide covers how to set up Google Cloud credentials and configure `leet-ssl-cert` for Cloud DNS validation and Google Cloud load balancer certificate deployment.
 
+If your DNS is hosted outside Google Cloud, you can still use `gcp_lb` as the deployer. For GoDaddy specifically, see [GCP Load Balancer + GoDaddy DNS Guide](gcp-godaddy.guide.md).
+
 ## Supported Features
 
 | Feature | GCP SDK | Status |
@@ -53,6 +55,8 @@ No additional configuration is needed on GKE, Cloud Run, Compute Engine, and oth
 |---|---|
 | Cloud DNS | `roles/dns.admin` |
 | SSL certificate upload / HTTPS proxy binding | `roles/compute.loadBalancerAdmin` |
+
+If you use GoDaddy DNS instead of Cloud DNS, you do not need the Cloud DNS role for this tool.
 
 ## Deployer Scope
 
@@ -125,6 +129,14 @@ leet-ssl-cert init gcp
 # Or pass the deployment target directly
 leet-ssl-cert init gcp \
   --dns-provider gcp \
+  --deployer gcp_lb \
+  --project my-gcp-project \
+  --scope global \
+  --target-https-proxy edge-proxy
+
+# Or deploy to GCP while using GoDaddy for DNS-01 challenges
+leet-ssl-cert init gcp \
+  --dns-provider godaddy \
   --deployer gcp_lb \
   --project my-gcp-project \
   --scope global \

@@ -457,3 +457,52 @@ def test_init_gcp_command_writes_config(monkeypatch, tmp_path) -> None:
         "scope": "global",
         "target_https_proxy": "edge-proxy",
     }
+
+
+def test_init_gcp_command_accepts_godaddy_dns_provider(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    output_path = tmp_path / "leet-ssl-cert.yaml"
+    captured_kwargs = {}
+
+    def fake_initialize_config(**kwargs):
+        captured_kwargs.update(kwargs)
+        return InitResult(
+            output_path=kwargs["output_path"],
+            validated=False,
+            dns_provider=kwargs["dns_provider"],
+            deployer=kwargs["deployer"],
+        )
+
+    monkeypatch.setattr(cli, "initialize_config", fake_initialize_config)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli.main,
+        [
+            "init",
+            "gcp",
+            "--output",
+            str(output_path),
+            "--skip-validation",
+            "--email",
+            "admin@example.com",
+            "--name",
+            "site",
+            "--domains",
+            "example.com",
+            "--dns-provider",
+            "godaddy",
+            "--deployer",
+            "gcp_lb",
+            "--project",
+            "my-gcp-project",
+            "--scope",
+            "global",
+            "--target-https-proxy",
+            "edge-proxy",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured_kwargs["dns_provider"] == "godaddy"
+    assert captured_kwargs["deployer"] == "gcp_lb"

@@ -13,6 +13,7 @@ Powered by ACME (Let's Encrypt) with DNS-01 challenges.
 | Alibaba Cloud | Aliyun DNS | CLB, ALB | [Aliyun Guide](docs/aliyun.guide.md) |
 | AWS | Route 53 | ACM, ELB/ALB | [AWS Guide](docs/aws.guide.md) |
 | GCP | Cloud DNS | HTTPS Proxy, SSL Proxy | [GCP Guide](docs/gcp.guide.md) |
+| GCP | GoDaddy DNS | HTTPS Proxy, SSL Proxy | [GCP + GoDaddy Guide](docs/gcp-godaddy.guide.md) |
 
 ## Requirements
 
@@ -30,6 +31,9 @@ source .venv/bin/activate
 pip install '.[aliyun]'    # Alibaba Cloud
 pip install '.[aws]'       # AWS
 pip install '.[gcp]'       # Google Cloud
+# GoDaddy DNS support is included in the base package.
+# Pair it with the deployer extra you need, for example:
+pip install '.[gcp]'       # GoDaddy DNS + GCP load balancer deployment
 
 # Or everything
 pip install '.[all]'
@@ -40,6 +44,9 @@ pip install '.[all]'
 ### 1. Set credentials
 
 See the provider guide for your cloud: [Aliyun](docs/aliyun.guide.md) | [AWS](docs/aws.guide.md) | [GCP](docs/gcp.guide.md)
+
+If your load balancer is on GCP and your authoritative DNS is on GoDaddy, use the dedicated walkthrough:
+[GCP + GoDaddy Guide](docs/gcp-godaddy.guide.md)
 
 ### 2. Create a config file
 
@@ -108,6 +115,7 @@ deploy --name my-site    # Deploy only one certificate
 init aliyun --skip-validation   # Skip provider credential checks
 init aws --concise              # Short prompts without explanations
 init gcp --project my-project --target-https-proxy edge-proxy
+init gcp --dns-provider godaddy --project my-project --target-https-proxy edge-proxy
 ```
 
 ## Configuration
@@ -151,6 +159,7 @@ For provider-specific config fields (regions, listener IDs, load balancer IDs), 
 - [Alibaba Cloud (Aliyun)](docs/aliyun.guide.md)
 - [AWS](docs/aws.guide.md)
 - [GCP](docs/gcp.guide.md)
+- [GCP Load Balancer + GoDaddy DNS](docs/gcp-godaddy.guide.md)
 
 ## Local State
 

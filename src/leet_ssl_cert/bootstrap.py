@@ -14,7 +14,7 @@ from leet_ssl_cert.models import InitResult
 from leet_ssl_cert.providers import get_deployer, get_dns_provider
 
 INIT_PROVIDER_CHOICES = ("aliyun", "aws", "gcp")
-DNS_PROVIDER_CHOICES = ("aliyun", "aws", "gcp")
+DNS_PROVIDER_CHOICES = ("aliyun", "aws", "gcp", "godaddy")
 DEPLOYER_CHOICES = ("aliyun_clb", "aliyun_alb", "aws_acm", "aws_elb", "gcp_lb")
 DEPLOYER_CHOICES_BY_PROVIDER = {
     "aliyun": ("aliyun_clb", "aliyun_alb"),
@@ -33,6 +33,10 @@ ENV_VAR_DEFINITIONS = {
     "GOOGLE_APPLICATION_CREDENTIALS": "Path to a Google Cloud service account JSON key for Application Default Credentials.",
     "GCP_PROJECT": "Google Cloud project ID used by the GCP provider.",
     "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID recognized by Google Cloud SDKs.",
+    "GODADDY_API_KEY": "GoDaddy production API key used to authenticate Domains API requests.",
+    "GODADDY_API_SECRET": "GoDaddy production API secret paired with GODADDY_API_KEY.",
+    "GODADDY_SHOPPER_ID": "Optional GoDaddy shopper ID for reseller scenarios that require X-Shopper-Id.",
+    "GODADDY_API_BASE_URL": "Optional GoDaddy API base URL override, such as the OTE environment.",
 }
 SETUP_ENV_VARS_BY_PROVIDER = {
     "aliyun": ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"],
@@ -45,10 +49,11 @@ SETUP_ENV_VARS_BY_PROVIDER = {
         "AWS_DEFAULT_REGION",
     ],
     "gcp": ["GOOGLE_APPLICATION_CREDENTIALS", "GCP_PROJECT", "GOOGLE_CLOUD_PROJECT"],
+    "godaddy": ["GODADDY_API_KEY", "GODADDY_API_SECRET"],
 }
 SUPPORTED_SETUP_ENV_VARS = [
     env_name
-    for provider in INIT_PROVIDER_CHOICES
+    for provider in dict.fromkeys((*INIT_PROVIDER_CHOICES, *DNS_PROVIDER_CHOICES))
     for env_name in SETUP_ENV_VARS_BY_PROVIDER[provider]
 ]
 
@@ -192,6 +197,11 @@ def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
         return {}
     if namespace == "gcp":
         return {"project": "${GCP_PROJECT}"}
+    if namespace == "godaddy":
+        return {
+            "api_key": "${GODADDY_API_KEY}",
+            "api_secret": "${GODADDY_API_SECRET}",
+        }
     return {}
 
 
@@ -227,6 +237,21 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
         project = os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or deploy_settings.get("project")
         if project:
             settings["project"] = project
+        return settings
+    if namespace == "godaddy":
+        settings: dict[str, Any] = {}
+        api_key = os.getenv("GODADDY_API_KEY")
+        api_secret = os.getenv("GODADDY_API_SECRET")
+        if api_key:
+            settings["api_key"] = api_key
+        if api_secret:
+            settings["api_secret"] = api_secret
+        shopper_id = os.getenv("GODADDY_SHOPPER_ID")
+        api_base_url = os.getenv("GODADDY_API_BASE_URL")
+        if shopper_id:
+            settings["shopper_id"] = shopper_id
+        if api_base_url:
+            settings["api_base_url"] = api_base_url
         return settings
     return {}
 
