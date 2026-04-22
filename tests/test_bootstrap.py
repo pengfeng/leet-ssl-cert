@@ -5,12 +5,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from leet_ssl_cert.bootstrap import (
-    build_init_config,
-    preflight_provider_environment,
-    print_provider_environment_snapshot,
-    write_init_config,
-)
+from leet_ssl_cert.bootstrap import (build_init_config,
+                                     preflight_provider_environment,
+                                     print_provider_environment_snapshot,
+                                     write_init_config)
 from leet_ssl_cert.errors import ConfigError
 
 
@@ -39,7 +37,7 @@ def test_build_init_config_includes_gcp_project_placeholder() -> None:
         deploy_settings={"project": "my-gcp-project", "scope": "global", "target_https_proxy": "edge-proxy"},
     )
 
-    assert document["providers"]["gcp"]["project"] == "${GCP_PROJECT}"
+    assert document["providers"]["gcp"]["project"] == "${GOOGLE_CLOUD_PROJECT}"
     assert document["certificates"][0]["deploy"][0]["provider"] == "gcp_lb"
 
 
@@ -55,7 +53,7 @@ def test_build_init_config_includes_godaddy_placeholders() -> None:
 
     assert document["providers"]["godaddy"]["api_key"] == "${GODADDY_API_KEY}"
     assert document["providers"]["godaddy"]["api_secret"] == "${GODADDY_API_SECRET}"
-    assert document["providers"]["gcp"]["project"] == "${GCP_PROJECT}"
+    assert document["providers"]["gcp"]["project"] == "${GOOGLE_CLOUD_PROJECT}"
 
 
 def test_write_init_config_writes_yaml(tmp_path: Path) -> None:
@@ -125,7 +123,7 @@ def test_preflight_provider_environment_reports_missing_godaddy_env_vars(
 ) -> None:
     monkeypatch.delenv("GODADDY_API_KEY", raising=False)
     monkeypatch.delenv("GODADDY_API_SECRET", raising=False)
-    monkeypatch.setenv("GCP_PROJECT", "my-gcp-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "my-gcp-project")
 
     with pytest.raises(ConfigError, match="Missing required environment variables"):
         preflight_provider_environment(dns_provider="godaddy", deployer="gcp_lb")

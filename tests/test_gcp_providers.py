@@ -51,7 +51,7 @@ class FakeManagedZone:
 
 
 def test_gcp_dns_provider_uses_project_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GCP_PROJECT", "env-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "env-project")
     provider = GCPCloudDNSProvider({})
 
     assert provider._project() == "env-project"

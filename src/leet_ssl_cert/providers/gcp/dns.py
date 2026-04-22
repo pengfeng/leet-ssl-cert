@@ -79,7 +79,7 @@ class GCPCloudDNSProvider(DNSProvider):
     def _project(self) -> str:
         project = resolve_gcp_project(self.settings)
         if not project:
-            raise DNSError("gcp provider requires project, GCP_PROJECT, or GOOGLE_CLOUD_PROJECT")
+            raise DNSError("gcp provider requires project, GOOGLE_CLOUD_PROJECT, or GOOGLE_CLOUD_PROJECT")
         return project
 
     def _find_managed_zone(self, zone_name: str) -> Any:

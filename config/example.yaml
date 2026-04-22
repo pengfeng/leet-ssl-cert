@@ -45,4 +45,4 @@ providers:
     access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
   aws: {}
   gcp:
-    project: ${GCP_PROJECT}
+    project: ${GOOGLE_CLOUD_PROJECT}

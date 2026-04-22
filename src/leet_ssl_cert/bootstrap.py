@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -31,7 +31,7 @@ ENV_VAR_DEFINITIONS = {
     "AWS_REGION": "Default AWS region used by boto3 clients.",
     "AWS_DEFAULT_REGION": "Fallback AWS region used by boto3 when AWS_REGION is unset.",
     "GOOGLE_APPLICATION_CREDENTIALS": "Path to a Google Cloud service account JSON key for Application Default Credentials.",
-    "GCP_PROJECT": "Google Cloud project ID used by the GCP provider.",
+    "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID used by the GCP provider.",
     "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID recognized by Google Cloud SDKs.",
     "GODADDY_API_KEY": "GoDaddy production API key used to authenticate Domains API requests.",
     "GODADDY_API_SECRET": "GoDaddy production API secret paired with GODADDY_API_KEY.",
@@ -48,7 +48,7 @@ SETUP_ENV_VARS_BY_PROVIDER = {
         "AWS_REGION",
         "AWS_DEFAULT_REGION",
     ],
-    "gcp": ["GOOGLE_APPLICATION_CREDENTIALS", "GCP_PROJECT", "GOOGLE_CLOUD_PROJECT"],
+    "gcp": ["GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_PROJECT"],
     "godaddy": ["GODADDY_API_KEY", "GODADDY_API_SECRET"],
 }
 SUPPORTED_SETUP_ENV_VARS = [
@@ -196,7 +196,7 @@ def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
     if namespace == "aws":
         return {}
     if namespace == "gcp":
-        return {"project": "${GCP_PROJECT}"}
+        return {"project": "${GOOGLE_CLOUD_PROJECT}"}
     if namespace == "godaddy":
         return {
             "api_key": "${GODADDY_API_KEY}",
@@ -234,7 +234,7 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
         return settings
     if namespace == "gcp":
         settings: dict[str, Any] = {}
-        project = os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or deploy_settings.get("project")
+        project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or deploy_settings.get("project")
         if project:
             settings["project"] = project
         return settings

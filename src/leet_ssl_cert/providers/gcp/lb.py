@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import re
+from datetime import datetime, timezone
 from typing import Any
 
 from leet_ssl_cert.errors import DeployError
 from leet_ssl_cert.models import DeployResult
 from leet_ssl_cert.providers.base import CertificateDeployer
-from leet_ssl_cert.providers.gcp.common import extract_resource_name, resolve_gcp_project
+from leet_ssl_cert.providers.gcp.common import (extract_resource_name,
+                                                resolve_gcp_project)
 
 NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
 
@@ -150,7 +151,7 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
     def _project(self) -> str:
         project = resolve_gcp_project(self.settings)
         if not project:
-            raise DeployError("gcp_lb deployer requires project, GCP_PROJECT, or GOOGLE_CLOUD_PROJECT")
+            raise DeployError("gcp_lb deployer requires project, GOOGLE_CLOUD_PROJECT, or GOOGLE_CLOUD_PROJECT")
         return project
 
     def _scope(self) -> str:

@@ -12,7 +12,7 @@ def resolve_gcp_project(settings: dict[str, Any]) -> str | None:
     if configured:
         return configured
 
-    for env_name in ("GCP_PROJECT", "GOOGLE_CLOUD_PROJECT"):
+    for env_name in ("GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_PROJECT"):
         env_value = str(os.getenv(env_name, "")).strip()
         if env_value:
             return env_value
