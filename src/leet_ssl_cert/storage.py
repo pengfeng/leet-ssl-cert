@@ -106,7 +106,9 @@ class CertificateStorage:
         cert_dir = self.cert_dir(name)
         cert_dir.mkdir(parents=True, exist_ok=True)
 
-        metadata = self._build_metadata(domains, certificate, self._read_metadata_if_exists(name))
+        metadata = self._build_metadata(
+            domains, certificate, self._read_metadata_if_exists(name)
+        )
         self._atomic_write(self.key_path(name), private_key_pem, mode=0o600)
         self._atomic_write(self.cert_path(name), certificate_pem, mode=0o600)
         self._atomic_write(
@@ -116,7 +118,9 @@ class CertificateStorage:
         )
         return self.load_certificate(name)
 
-    def update_last_deploy(self, name: str, provider: str, details: dict[str, Any]) -> None:
+    def update_last_deploy(
+        self, name: str, provider: str, details: dict[str, Any]
+    ) -> None:
         metadata = self._read_metadata_if_exists(name)
         last_deploy = metadata.setdefault("last_deploy", {})
         last_deploy[provider] = details
@@ -159,7 +163,9 @@ class CertificateStorage:
         os.replace(temp_name, path)
 
 
-def certificate_remaining_days(stored: StoredCertificate, now: datetime | None = None) -> int:
+def certificate_remaining_days(
+    stored: StoredCertificate, now: datetime | None = None
+) -> int:
     """Return whole remaining days until certificate expiry."""
     current = now or datetime.now(timezone.utc)
     delta = stored.certificate.not_valid_after_utc - current

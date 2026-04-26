@@ -19,11 +19,15 @@ class AliyunDNSProvider(DNSProvider):
     def validate_credentials(self) -> None:
         request_cls = self._import_request("DescribeDomainsRequest")
         try:
-            self._client_or_raise().describe_domains(request_cls(page_number=1, page_size=1))
+            self._client_or_raise().describe_domains(
+                request_cls(page_number=1, page_size=1)
+            )
         except DNSError:
             raise
         except Exception as exc:
-            raise DNSError(f"Alibaba Cloud DNS credential validation failed: {exc}") from exc
+            raise DNSError(
+                f"Alibaba Cloud DNS credential validation failed: {exc}"
+            ) from exc
 
     def create_txt_record(self, zone: str, record_name: str, value: str) -> None:
         request_cls = self._import_request("AddDomainRecordRequest")
@@ -45,7 +49,9 @@ class AliyunDNSProvider(DNSProvider):
         )
         response = self._client_or_raise().describe_domain_records(request)
         record_id = None
-        records = getattr(getattr(response.body, "domain_records", None), "record", []) or []
+        records = (
+            getattr(getattr(response.body, "domain_records", None), "record", []) or []
+        )
         for record in records:
             if getattr(record, "value", None) == value:
                 record_id = getattr(record, "record_id", None)
@@ -53,7 +59,9 @@ class AliyunDNSProvider(DNSProvider):
         if not record_id:
             return
         delete_request_cls = self._import_request("DeleteDomainRecordRequest")
-        self._client_or_raise().delete_domain_record(delete_request_cls(record_id=record_id))
+        self._client_or_raise().delete_domain_record(
+            delete_request_cls(record_id=record_id)
+        )
 
     def find_zone_for_domain(self, domain: str) -> str:
         request_cls = self._import_request("DescribeDomainsRequest")
@@ -61,7 +69,11 @@ class AliyunDNSProvider(DNSProvider):
         response = self._client_or_raise().describe_domains(request)
         domains = getattr(getattr(response.body, "domains", None), "domain", []) or []
         candidates = [getattr(item, "domain_name", "") for item in domains]
-        matches = [candidate for candidate in candidates if domain == candidate or domain.endswith(f".{candidate}")]
+        matches = [
+            candidate
+            for candidate in candidates
+            if domain == candidate or domain.endswith(f".{candidate}")
+        ]
         if not matches:
             raise DNSError(f"Unable to find an Alibaba Cloud DNS zone for {domain}")
         return max(matches, key=len)
@@ -70,13 +82,16 @@ class AliyunDNSProvider(DNSProvider):
         access_key_id = self.settings.get("access_key_id")
         access_key_secret = self.settings.get("access_key_secret")
         if not access_key_id or not access_key_secret:
-            raise DNSError("aliyun provider requires access_key_id and access_key_secret")
+            raise DNSError(
+                "aliyun provider requires access_key_id and access_key_secret"
+            )
         try:
-            from alibabacloud_alidns20150109.client import \
-                Client as AlidnsClient
+            from alibabacloud_alidns20150109.client import Client as AlidnsClient
             from alibabacloud_tea_openapi import models as open_api_models
         except ImportError as exc:
-            raise DNSError("Alibaba Cloud DNS SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
+            raise DNSError(
+                "Alibaba Cloud DNS SDK is not installed. Install leet-ssl-cert[aliyun]."
+            ) from exc
 
         config = open_api_models.Config(
             access_key_id=access_key_id,
@@ -89,7 +104,9 @@ class AliyunDNSProvider(DNSProvider):
         return AlidnsClient(config)
 
     def _region_id(self) -> str:
-        region_id = str(self.settings.get("region") or os.getenv("ALIBABA_CLOUD_REGION_ID") or "").strip()
+        region_id = str(
+            self.settings.get("region") or os.getenv("ALIBABA_CLOUD_REGION_ID") or ""
+        ).strip()
         if not region_id:
             raise DNSError("aliyun provider requires region or ALIBABA_CLOUD_REGION_ID")
         return region_id
@@ -103,7 +120,9 @@ class AliyunDNSProvider(DNSProvider):
         try:
             from alibabacloud_alidns20150109 import models as alidns_models
         except ImportError as exc:
-            raise DNSError("Alibaba Cloud DNS SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
+            raise DNSError(
+                "Alibaba Cloud DNS SDK is not installed. Install leet-ssl-cert[aliyun]."
+            ) from exc
         return getattr(alidns_models, name)
 
     def _relative_record_name(self, zone: str, record_name: str) -> str:

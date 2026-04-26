@@ -22,13 +22,19 @@ class AliyunALBDeployer(CertificateDeployer):
     def validate_credentials(self) -> None:
         try:
             self._cas_client_or_raise().list_user_certificate_order(
-                self._cas_request("ListUserCertificateOrderRequest")(show_size=1, current_page=1, order_type="UPLOAD")
+                self._cas_request("ListUserCertificateOrderRequest")(
+                    show_size=1, current_page=1, order_type="UPLOAD"
+                )
             )
-            self._alb_client_or_raise().list_listeners(self._alb_request("ListListenersRequest")(max_results=1))
+            self._alb_client_or_raise().list_listeners(
+                self._alb_request("ListListenersRequest")(max_results=1)
+            )
         except DeployError:
             raise
         except Exception as exc:
-            raise DeployError(f"Alibaba Cloud ALB credential validation failed: {exc}") from exc
+            raise DeployError(
+                f"Alibaba Cloud ALB credential validation failed: {exc}"
+            ) from exc
 
     def upload_certificate(self, name: str, cert_pem: str, key_pem: str) -> str:
         request_cls = self._cas_request("UploadUserCertificateRequest")
@@ -42,7 +48,9 @@ class AliyunALBDeployer(CertificateDeployer):
         )
         certificate_id = getattr(getattr(response, "body", response), "cert_id", None)
         if certificate_id is None:
-            certificate_id = getattr(getattr(response, "body", response), "CertId", None)
+            certificate_id = getattr(
+                getattr(response, "body", response), "CertId", None
+            )
         if certificate_id is None:
             raise DeployError("Alibaba CAS upload succeeded without returning CertId")
         return str(certificate_id)
@@ -51,7 +59,9 @@ class AliyunALBDeployer(CertificateDeployer):
         listener_id = self._required("listener_id")
         old_certificate_id = self._current_listener_certificate(listener_id)
         certificates = [{"CertificateId": certificate_id}]
-        request_cls = self._alb_request("AssociateAdditionalCertificatesWithListenerRequest")
+        request_cls = self._alb_request(
+            "AssociateAdditionalCertificatesWithListenerRequest"
+        )
         self._alb_client_or_raise().associate_additional_certificates_with_listener(
             request_cls(listener_id=listener_id, certificates=certificates)
         )
@@ -67,36 +77,58 @@ class AliyunALBDeployer(CertificateDeployer):
         response = self._cas_client_or_raise().list_user_certificate_order(
             request_cls(show_size=100, current_page=1, order_type="UPLOAD")
         )
-        records = getattr(getattr(response.body, "certificate_order_list", None), "certificate_order_list", []) or []
+        records = (
+            getattr(
+                getattr(response.body, "certificate_order_list", None),
+                "certificate_order_list",
+                [],
+            )
+            or []
+        )
         prefix = f"leet-{name}-"
-        matching = [record for record in records if str(getattr(record, "name", "")).startswith(prefix)]
+        matching = [
+            record
+            for record in records
+            if str(getattr(record, "name", "")).startswith(prefix)
+        ]
         matching.sort(key=lambda item: str(getattr(item, "name", "")), reverse=True)
 
         deleted: list[str] = []
         delete_request_cls = self._cas_request("DeleteUserCertificateRequest")
         listener_id = self._required("listener_id")
         for record in matching[keep:]:
-            cert_id = getattr(record, "cert_id", None) or getattr(record, "certificate_id", None)
+            cert_id = getattr(record, "cert_id", None) or getattr(
+                record, "certificate_id", None
+            )
             if cert_id is None:
                 continue
             cert_id = str(cert_id)
             try:
                 self._alb_client_or_raise().dissociate_additional_certificates_from_listener(
-                    self._alb_request("DissociateAdditionalCertificatesFromListenerRequest")(
+                    self._alb_request(
+                        "DissociateAdditionalCertificatesFromListenerRequest"
+                    )(
                         listener_id=listener_id,
                         certificates=[{"CertificateId": cert_id}],
                     )
                 )
             except Exception:
                 pass
-            self._cas_client_or_raise().delete_user_certificate(delete_request_cls(cert_id=cert_id))
+            self._cas_client_or_raise().delete_user_certificate(
+                delete_request_cls(cert_id=cert_id)
+            )
             deleted.append(cert_id)
         return deleted
 
     def _current_listener_certificate(self, listener_id: str) -> str | None:
         request_cls = self._alb_request("ListListenerCertificatesRequest")
-        response = self._alb_client_or_raise().list_listener_certificates(request_cls(listener_id=listener_id))
-        certificates = getattr(getattr(response.body, "certificates", None), "certificates", []) or []
+        response = self._alb_client_or_raise().list_listener_certificates(
+            request_cls(listener_id=listener_id)
+        )
+        certificates = (
+            getattr(getattr(response.body, "certificates", None), "certificates", [])
+            or []
+        )
         for certificate in certificates:
             cert_id = getattr(certificate, "certificate_id", None)
             if cert_id is not None:
@@ -123,12 +155,16 @@ class AliyunALBDeployer(CertificateDeployer):
         access_key_id = self.settings.get("access_key_id")
         access_key_secret = self.settings.get("access_key_secret")
         if not access_key_id or not access_key_secret:
-            raise DeployError("aliyun_alb deployer requires access_key_id and access_key_secret")
+            raise DeployError(
+                "aliyun_alb deployer requires access_key_id and access_key_secret"
+            )
         try:
             from alibabacloud_alb20200616.client import Client as AlbClient
             from alibabacloud_tea_openapi import models as open_api_models
         except ImportError as exc:
-            raise DeployError("Alibaba Cloud ALB SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
+            raise DeployError(
+                "Alibaba Cloud ALB SDK is not installed. Install leet-ssl-cert[aliyun]."
+            ) from exc
         config = open_api_models.Config(
             access_key_id=access_key_id,
             access_key_secret=access_key_secret,
@@ -143,12 +179,16 @@ class AliyunALBDeployer(CertificateDeployer):
         access_key_id = self.settings.get("access_key_id")
         access_key_secret = self.settings.get("access_key_secret")
         if not access_key_id or not access_key_secret:
-            raise DeployError("aliyun_alb deployer requires access_key_id and access_key_secret")
+            raise DeployError(
+                "aliyun_alb deployer requires access_key_id and access_key_secret"
+            )
         try:
             from alibabacloud_cas20200407.client import Client as CasClient
             from alibabacloud_tea_openapi import models as open_api_models
         except ImportError as exc:
-            raise DeployError("Alibaba Cloud CAS SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
+            raise DeployError(
+                "Alibaba Cloud CAS SDK is not installed. Install leet-ssl-cert[aliyun]."
+            ) from exc
         config = open_api_models.Config(
             access_key_id=access_key_id,
             access_key_secret=access_key_secret,
@@ -160,21 +200,29 @@ class AliyunALBDeployer(CertificateDeployer):
         return CasClient(config)
 
     def _region_id(self) -> str:
-        region_id = str(self.settings.get("region") or os.getenv("ALIBABA_CLOUD_REGION_ID") or "").strip()
+        region_id = str(
+            self.settings.get("region") or os.getenv("ALIBABA_CLOUD_REGION_ID") or ""
+        ).strip()
         if not region_id:
-            raise DeployError("aliyun_alb deployer requires region or ALIBABA_CLOUD_REGION_ID")
+            raise DeployError(
+                "aliyun_alb deployer requires region or ALIBABA_CLOUD_REGION_ID"
+            )
         return region_id
 
     def _alb_request(self, name: str) -> Any:
         try:
             from alibabacloud_alb20200616 import models as alb_models
         except ImportError as exc:
-            raise DeployError("Alibaba Cloud ALB SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
+            raise DeployError(
+                "Alibaba Cloud ALB SDK is not installed. Install leet-ssl-cert[aliyun]."
+            ) from exc
         return getattr(alb_models, name)
 
     def _cas_request(self, name: str) -> Any:
         try:
             from alibabacloud_cas20200407 import models as cas_models
         except ImportError as exc:
-            raise DeployError("Alibaba Cloud CAS SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
+            raise DeployError(
+                "Alibaba Cloud CAS SDK is not installed. Install leet-ssl-cert[aliyun]."
+            ) from exc
         return getattr(cas_models, name)

@@ -58,13 +58,19 @@ class AWSRoute53DNSProvider(DNSProvider):
             )
         except Exception as exc:
             if "not found" not in str(exc).lower():
-                raise DNSError(f"Failed deleting Route 53 TXT record {record_name}: {exc}") from exc
+                raise DNSError(
+                    f"Failed deleting Route 53 TXT record {record_name}: {exc}"
+                ) from exc
 
     def find_zone_for_domain(self, domain: str) -> str:
         response = self._client_or_raise().list_hosted_zones()
         zones = response.get("HostedZones", [])
         candidates = [zone["Name"].rstrip(".") for zone in zones]
-        matches = [candidate for candidate in candidates if domain == candidate or domain.endswith(f".{candidate}")]
+        matches = [
+            candidate
+            for candidate in candidates
+            if domain == candidate or domain.endswith(f".{candidate}")
+        ]
         if not matches:
             raise DNSError(f"Unable to find a Route 53 hosted zone for {domain}")
         return max(matches, key=len)
@@ -78,7 +84,9 @@ class AWSRoute53DNSProvider(DNSProvider):
         try:
             import boto3
         except ImportError as exc:
-            raise DNSError("boto3 is not installed. Install leet-ssl-cert[aws].") from exc
+            raise DNSError(
+                "boto3 is not installed. Install leet-ssl-cert[aws]."
+            ) from exc
         session = boto3.session.Session(
             aws_access_key_id=self.settings.get("access_key_id"),
             aws_secret_access_key=self.settings.get("secret_access_key"),

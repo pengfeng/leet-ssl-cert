@@ -5,10 +5,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from leet_ssl_cert.bootstrap import (build_init_config,
-                                     preflight_provider_environment,
-                                     print_provider_environment_snapshot,
-                                     write_init_config)
+from leet_ssl_cert.bootstrap import (
+    build_init_config,
+    preflight_provider_environment,
+    print_provider_environment_snapshot,
+    write_init_config,
+)
 from leet_ssl_cert.errors import ConfigError
 
 
@@ -22,7 +24,10 @@ def test_build_init_config_includes_provider_placeholders() -> None:
         deploy_settings={"region": "us-east-1"},
     )
 
-    assert document["providers"]["aliyun"]["access_key_id"] == "${ALIBABA_CLOUD_ACCESS_KEY_ID}"
+    assert (
+        document["providers"]["aliyun"]["access_key_id"]
+        == "${ALIBABA_CLOUD_ACCESS_KEY_ID}"
+    )
     assert document["providers"]["aws"] == {}
     assert document["certificates"][0]["deploy"][0]["provider"] == "aws_acm"
 
@@ -34,7 +39,11 @@ def test_build_init_config_includes_gcp_project_placeholder() -> None:
         domains=["example.com"],
         dns_provider="gcp",
         deployer="gcp_lb",
-        deploy_settings={"project": "my-gcp-project", "scope": "global", "target_https_proxy": "edge-proxy"},
+        deploy_settings={
+            "project": "my-gcp-project",
+            "scope": "global",
+            "target_https_proxy": "edge-proxy",
+        },
     )
 
     assert document["providers"]["gcp"]["project"] == "${GOOGLE_CLOUD_PROJECT}"
@@ -48,7 +57,11 @@ def test_build_init_config_includes_godaddy_placeholders() -> None:
         domains=["example.com"],
         dns_provider="godaddy",
         deployer="gcp_lb",
-        deploy_settings={"project": "my-gcp-project", "scope": "global", "target_https_proxy": "edge-proxy"},
+        deploy_settings={
+            "project": "my-gcp-project",
+            "scope": "global",
+            "target_https_proxy": "edge-proxy",
+        },
     )
 
     assert document["providers"]["godaddy"]["api_key"] == "${GODADDY_API_KEY}"
@@ -82,7 +95,9 @@ def test_preflight_provider_environment_reports_missing_env_vars(
 
     captured = capsys.readouterr()
     assert "ALIBABA_CLOUD_ACCESS_KEY_ID" in captured.err
-    assert "Alibaba Cloud access key ID used to authenticate API requests." in captured.err
+    assert (
+        "Alibaba Cloud access key ID used to authenticate API requests." in captured.err
+    )
     assert "value: <not set>" in captured.err
 
 

@@ -6,11 +6,12 @@ import pytest
 
 from leet_ssl_cert.errors import DeployError
 from leet_ssl_cert.models import DeployResult
-from leet_ssl_cert.providers.aliyun.clb import (AliyunCLBDeployer,
-                                                _leaf_certificate_pem)
+from leet_ssl_cert.providers.aliyun.clb import AliyunCLBDeployer, _leaf_certificate_pem
 
 
-def test_aliyun_clb_client_config_includes_region(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_aliyun_clb_client_config_includes_region(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured: dict[str, object] = {}
 
     class FakeConfig:
@@ -57,7 +58,9 @@ def test_aliyun_clb_requires_region(monkeypatch: pytest.MonkeyPatch) -> None:
         deployer._region_id()
 
 
-def test_aliyun_clb_validate_request_includes_region(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_aliyun_clb_validate_request_includes_region(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured: dict[str, object] = {}
 
     class FakeRequest:
@@ -68,7 +71,9 @@ def test_aliyun_clb_validate_request_includes_region(monkeypatch: pytest.MonkeyP
         def describe_server_certificates(self, request) -> None:
             captured["request"] = request
 
-    monkeypatch.setattr(AliyunCLBDeployer, "_import_request", lambda self, name: FakeRequest)
+    monkeypatch.setattr(
+        AliyunCLBDeployer, "_import_request", lambda self, name: FakeRequest
+    )
     deployer = AliyunCLBDeployer(
         {
             "access_key_id": "ak",
@@ -99,7 +104,9 @@ intermediate
     assert "intermediate" not in leaf
 
 
-def test_aliyun_clb_bind_uses_generated_httpslistener_method(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_aliyun_clb_bind_uses_generated_httpslistener_method(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: list[str] = []
 
     class FakeBody:
@@ -117,7 +124,9 @@ def test_aliyun_clb_bind_uses_generated_httpslistener_method(monkeypatch: pytest
         def __init__(self, **kwargs) -> None:
             self.kwargs = kwargs
 
-    monkeypatch.setattr(AliyunCLBDeployer, "_import_request", lambda self, name: FakeRequest)
+    monkeypatch.setattr(
+        AliyunCLBDeployer, "_import_request", lambda self, name: FakeRequest
+    )
     deployer = AliyunCLBDeployer(
         {
             "access_key_id": "ak",

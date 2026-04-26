@@ -36,7 +36,9 @@ def get_dns_provider(name: str, settings: dict[str, Any] | None = None) -> DNSPr
     return provider_cls(settings=settings)
 
 
-def get_deployer(name: str, settings: dict[str, Any] | None = None) -> CertificateDeployer:
+def get_deployer(
+    name: str, settings: dict[str, Any] | None = None
+) -> CertificateDeployer:
     """Instantiate a deployer by registry name."""
     try:
         deployer_cls = DEPLOYER_REGISTRY[name]

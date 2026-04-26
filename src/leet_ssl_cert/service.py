@@ -8,7 +8,12 @@ from typing import Callable
 from leet_ssl_cert.acme_client import AcmeCertificateManager
 from leet_ssl_cert.config import AppConfig, CertificateConfig
 from leet_ssl_cert.errors import ACMEError, ConfigError, DeployError
-from leet_ssl_cert.models import CertificateStatus, DeploymentRecord, IssueResult, RevokeResult
+from leet_ssl_cert.models import (
+    CertificateStatus,
+    DeploymentRecord,
+    IssueResult,
+    RevokeResult,
+)
 from leet_ssl_cert.providers import get_deployer, get_dns_provider
 from leet_ssl_cert.storage import CertificateStorage, certificate_remaining_days
 
@@ -32,7 +37,9 @@ class CertificateService:
         self.dns_factory = dns_factory
         self.deployer_factory = deployer_factory
 
-    def issue(self, *, name: str | None = None, force: bool = False, dry_run: bool = False) -> list[IssueResult]:
+    def issue(
+        self, *, name: str | None = None, force: bool = False, dry_run: bool = False
+    ) -> list[IssueResult]:
         """Issue or renew selected certificates."""
         results: list[IssueResult] = []
         for certificate in self._select_certificates(name):
@@ -85,10 +92,14 @@ class CertificateService:
         results: list[DeploymentRecord] = []
         for certificate in self._select_certificates(name):
             if not self.storage.certificate_exists(certificate.name):
-                raise ACMEError(f"Local certificate bundle not found for {certificate.name}. Run issue first.")
+                raise ACMEError(
+                    f"Local certificate bundle not found for {certificate.name}. Run issue first."
+                )
             stored = self.storage.load_certificate(certificate.name)
             for target in certificate.deploy:
-                settings = dict(self.config.providers.get(_provider_namespace(target.provider), {}))
+                settings = dict(
+                    self.config.providers.get(_provider_namespace(target.provider), {})
+                )
                 settings.update(target.settings)
                 deployer = self.deployer_factory(target.provider, settings)
                 try:
@@ -98,7 +109,9 @@ class CertificateService:
                         stored.private_key_pem.decode("utf-8"),
                     )
                     deploy_result = deployer.bind_certificate(certificate_id)
-                    deleted_ids = deployer.cleanup_old_certificates(certificate.name, keep=2)
+                    deleted_ids = deployer.cleanup_old_certificates(
+                        certificate.name, keep=2
+                    )
                 except DeployError:
                     raise
                 except Exception as exc:
@@ -110,7 +123,9 @@ class CertificateService:
                     target.provider,
                     {
                         "certificate_id": deploy_result.certificate_id,
-                        "deployed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                        "deployed_at": datetime.now(timezone.utc)
+                        .isoformat()
+                        .replace("+00:00", "Z"),
                         "bound_to": deploy_result.bound_to,
                         "old_certificate_id": deploy_result.old_certificate_id,
                     },
@@ -126,7 +141,9 @@ class CertificateService:
                 )
         return results
 
-    def run(self, *, name: str | None = None, force: bool = False, dry_run: bool = False) -> tuple[list[IssueResult], list[DeploymentRecord]]:
+    def run(
+        self, *, name: str | None = None, force: bool = False, dry_run: bool = False
+    ) -> tuple[list[IssueResult], list[DeploymentRecord]]:
         """Run issuance followed by deployment."""
         issue_results = self.issue(name=name, force=force, dry_run=dry_run)
         if dry_run:
@@ -148,7 +165,11 @@ class CertificateService:
                 expires_at = None
                 last_deploy = {}
                 exists_locally = False
-            due = not exists_locally or remaining_days is None or remaining_days < self.config.acme.renewal_days
+            due = (
+                not exists_locally
+                or remaining_days is None
+                or remaining_days < self.config.acme.renewal_days
+            )
             statuses.append(
                 CertificateStatus(
                     name=certificate.name,
@@ -166,7 +187,11 @@ class CertificateService:
     def _select_certificates(self, name: str | None) -> list[CertificateConfig]:
         if name is None:
             return self.config.certificates
-        selected = [certificate for certificate in self.config.certificates if certificate.name == name]
+        selected = [
+            certificate
+            for certificate in self.config.certificates
+            if certificate.name == name
+        ]
         if not selected:
             raise ConfigError(f"Unknown certificate name: {name}")
         return selected
@@ -175,7 +200,9 @@ class CertificateService:
         """Revoke a locally stored certificate via ACME."""
         self._select_certificates(name)
         if not self.storage.certificate_exists(name):
-            raise ACMEError(f"Local certificate bundle not found for {name}. Nothing to revoke.")
+            raise ACMEError(
+                f"Local certificate bundle not found for {name}. Nothing to revoke."
+            )
         stored = self.storage.load_certificate(name)
         self.acme_manager.revoke_certificate(stored)
         return RevokeResult(name=name, revoked=True)

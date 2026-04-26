@@ -8,7 +8,9 @@ from leet_ssl_cert.config import load_config
 from leet_ssl_cert.errors import ConfigError
 
 
-def test_load_config_interpolates_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_load_config_interpolates_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         """

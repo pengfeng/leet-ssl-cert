@@ -9,8 +9,10 @@ from typing import Any
 from leet_ssl_cert.errors import DeployError
 from leet_ssl_cert.models import DeployResult
 from leet_ssl_cert.providers.base import CertificateDeployer
-from leet_ssl_cert.providers.gcp.common import (extract_resource_name,
-                                                resolve_gcp_project)
+from leet_ssl_cert.providers.gcp.common import (
+    extract_resource_name,
+    resolve_gcp_project,
+)
 
 NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
 
@@ -59,7 +61,9 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
                 project=project,
                 ssl_certificate_resource=certificate_resource,
             )
-        self._wait_for_operation(operation, action=f"upload certificate {certificate_name}")
+        self._wait_for_operation(
+            operation, action=f"upload certificate {certificate_name}"
+        )
         return certificate_name
 
     def bind_certificate(self, certificate_id: str) -> DeployResult:
@@ -70,7 +74,11 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
             proxy_name = self._target_https_proxy()
             if self._scope() == "regional":
                 client = self._region_target_https_proxies_client()
-                current = client.get(project=project, region=self._region(), target_https_proxy=proxy_name)
+                current = client.get(
+                    project=project,
+                    region=self._region(),
+                    target_https_proxy=proxy_name,
+                )
                 old_certificate_id = self._first_certificate(current)
                 operation = client.set_ssl_certificates(
                     project=project,
@@ -93,7 +101,9 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
                     },
                 )
                 bound_to = f"targetHttpsProxy/{proxy_name}"
-            self._wait_for_operation(operation, action=f"bind certificate to {bound_to}")
+            self._wait_for_operation(
+                operation, action=f"bind certificate to {bound_to}"
+            )
             return DeployResult(
                 certificate_id=certificate_id,
                 provider="gcp_lb",
@@ -144,14 +154,18 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
                     project=project,
                     ssl_certificate=certificate_name,
                 )
-            self._wait_for_operation(operation, action=f"delete certificate {certificate_name}")
+            self._wait_for_operation(
+                operation, action=f"delete certificate {certificate_name}"
+            )
             removed.append(certificate_name)
         return removed
 
     def _project(self) -> str:
         project = resolve_gcp_project(self.settings)
         if not project:
-            raise DeployError("gcp_lb deployer requires project, GOOGLE_CLOUD_PROJECT, or GOOGLE_CLOUD_PROJECT")
+            raise DeployError(
+                "gcp_lb deployer requires project, GOOGLE_CLOUD_PROJECT, or GOOGLE_CLOUD_PROJECT"
+            )
         return project
 
     def _scope(self) -> str:
@@ -159,7 +173,9 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
         if scope not in {"global", "regional"}:
             raise DeployError("gcp_lb deployer scope must be either global or regional")
         if scope == "regional" and self._target_ssl_proxy():
-            raise DeployError("gcp_lb does not support regional target_ssl_proxy bindings")
+            raise DeployError(
+                "gcp_lb does not support regional target_ssl_proxy bindings"
+            )
         return scope
 
     def _region(self) -> str:
@@ -178,9 +194,13 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
         has_https_proxy = bool(self._target_https_proxy())
         has_ssl_proxy = bool(self._target_ssl_proxy())
         if has_https_proxy and has_ssl_proxy:
-            raise DeployError("gcp_lb deployer requires only one of target_https_proxy or target_ssl_proxy")
+            raise DeployError(
+                "gcp_lb deployer requires only one of target_https_proxy or target_ssl_proxy"
+            )
         if not has_https_proxy and not has_ssl_proxy:
-            raise DeployError("gcp_lb deployer requires target_https_proxy or target_ssl_proxy")
+            raise DeployError(
+                "gcp_lb deployer requires target_https_proxy or target_ssl_proxy"
+            )
         return "https" if has_https_proxy else "ssl"
 
     def _target_ssl_proxies_client(self) -> Any:
@@ -202,7 +222,9 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
         try:
             from google.cloud import compute_v1
         except ImportError as exc:
-            raise DeployError("google-cloud-compute is not installed. Install leet-ssl-cert[gcp].") from exc
+            raise DeployError(
+                "google-cloud-compute is not installed. Install leet-ssl-cert[gcp]."
+            ) from exc
         return getattr(compute_v1, name)()
 
     def _wait_for_operation(self, operation: Any, *, action: str) -> None:
@@ -210,13 +232,19 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
             return
         try:
             if hasattr(operation, "result"):
-                operation.result(timeout=int(self.settings.get("operation_timeout", 300)))
+                operation.result(
+                    timeout=int(self.settings.get("operation_timeout", 300))
+                )
         except Exception as exc:
             raise DeployError(f"GCP operation failed during {action}: {exc}") from exc
         error_code = getattr(operation, "error_code", None)
         if error_code:
-            error_message = getattr(operation, "error_message", None) or getattr(operation, "http_error_message", None)
-            raise DeployError(f"GCP operation failed during {action}: {error_message or error_code}")
+            error_message = getattr(operation, "error_message", None) or getattr(
+                operation, "http_error_message", None
+            )
+            raise DeployError(
+                f"GCP operation failed during {action}: {error_message or error_code}"
+            )
 
     def _first_certificate(self, proxy: Any) -> str | None:
         ssl_certificates = getattr(proxy, "ssl_certificates", None) or []
@@ -227,11 +255,17 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
     def _list_certificates(self) -> list[Any]:
         project = self._project()
         if self._scope() == "regional":
-            return list(self._region_ssl_certificates_client().list(project=project, region=self._region()))
+            return list(
+                self._region_ssl_certificates_client().list(
+                    project=project, region=self._region()
+                )
+            )
         return list(self._ssl_certificates_client().list(project=project))
 
     def _certificate_ref(self, certificate_name: str) -> str:
-        if certificate_name.startswith("https://") or certificate_name.startswith("projects/"):
+        if certificate_name.startswith("https://") or certificate_name.startswith(
+            "projects/"
+        ):
             return certificate_name
         project = self._project()
         if self._scope() == "regional":

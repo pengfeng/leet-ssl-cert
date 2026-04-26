@@ -26,13 +26,17 @@ class GoDaddyDNSProvider(DNSProvider):
         try:
             name = self._relative_record_name(zone, record_name)
             existing = self._get_txt_records(zone, name)
-            records_by_value = {item["data"]: item for item in existing if item.get("data")}
+            records_by_value = {
+                item["data"]: item for item in existing if item.get("data")
+            }
             records_by_value.setdefault(value, {"data": value})
             self._replace_txt_records(zone, name, list(records_by_value.values()))
         except DNSError:
             raise
         except Exception as exc:
-            raise DNSError(f"Failed creating GoDaddy TXT record {record_name}: {exc}") from exc
+            raise DNSError(
+                f"Failed creating GoDaddy TXT record {record_name}: {exc}"
+            ) from exc
 
     def delete_txt_record(self, zone: str, record_name: str, value: str) -> None:
         try:
@@ -48,7 +52,9 @@ class GoDaddyDNSProvider(DNSProvider):
         except DNSError:
             raise
         except Exception as exc:
-            raise DNSError(f"Failed deleting GoDaddy TXT record {record_name}: {exc}") from exc
+            raise DNSError(
+                f"Failed deleting GoDaddy TXT record {record_name}: {exc}"
+            ) from exc
 
     def find_zone_for_domain(self, domain: str) -> str:
         try:
@@ -61,7 +67,11 @@ class GoDaddyDNSProvider(DNSProvider):
             raise
         except Exception as exc:
             raise DNSError(f"Failed listing GoDaddy domains: {exc}") from exc
-        matches = [candidate for candidate in candidates if domain == candidate or domain.endswith(f".{candidate}")]
+        matches = [
+            candidate
+            for candidate in candidates
+            if domain == candidate or domain.endswith(f".{candidate}")
+        ]
         if not matches:
             raise DNSError(f"Unable to find a GoDaddy DNS zone for {domain}")
         return max(matches, key=len)
@@ -87,21 +97,36 @@ class GoDaddyDNSProvider(DNSProvider):
             marker = next_marker
 
     def _get_txt_records(self, zone: str, name: str) -> list[dict[str, Any]]:
-        records = self._request("GET", self._records_path(zone, name), not_found_ok=True)
+        records = self._request(
+            "GET", self._records_path(zone, name), not_found_ok=True
+        )
         if records is None:
             return []
         if not isinstance(records, list):
-            raise DNSError(f"Unexpected response while reading GoDaddy TXT record {name}")
+            raise DNSError(
+                f"Unexpected response while reading GoDaddy TXT record {name}"
+            )
         return [item for item in records if isinstance(item, dict)]
 
-    def _replace_txt_records(self, zone: str, name: str, records: list[dict[str, Any]]) -> None:
+    def _replace_txt_records(
+        self, zone: str, name: str, records: list[dict[str, Any]]
+    ) -> None:
         default_ttl = self._configured_ttl()
         if default_ttl is None:
-            default_ttl = next((int(item["ttl"]) for item in records if item.get("ttl") is not None), None)
-        payload = [self._record_payload(item, default_ttl=default_ttl) for item in records if item.get("data")]
+            default_ttl = next(
+                (int(item["ttl"]) for item in records if item.get("ttl") is not None),
+                None,
+            )
+        payload = [
+            self._record_payload(item, default_ttl=default_ttl)
+            for item in records
+            if item.get("data")
+        ]
         self._request("PUT", self._records_path(zone, name), payload=payload)
 
-    def _record_payload(self, record: dict[str, Any], *, default_ttl: int | None) -> dict[str, Any]:
+    def _record_payload(
+        self, record: dict[str, Any], *, default_ttl: int | None
+    ) -> dict[str, Any]:
         payload = {"data": str(record["data"])}
         ttl = record.get("ttl", default_ttl)
         if ttl is not None:
@@ -136,7 +161,9 @@ class GoDaddyDNSProvider(DNSProvider):
         except error.HTTPError as exc:
             if exc.code == 404 and not_found_ok:
                 return None
-            raise DNSError(f"GoDaddy API request failed with HTTP {exc.code}: {self._read_error_body(exc)}") from exc
+            raise DNSError(
+                f"GoDaddy API request failed with HTTP {exc.code}: {self._read_error_body(exc)}"
+            ) from exc
         except error.URLError as exc:
             raise DNSError(f"GoDaddy API request failed: {exc.reason}") from exc
         if not raw:
@@ -178,11 +205,17 @@ class GoDaddyDNSProvider(DNSProvider):
         return f"sso-key {api_key}:{api_secret}"
 
     def _shopper_id(self) -> str | None:
-        shopper_id = str(self.settings.get("shopper_id") or os.getenv("GODADDY_SHOPPER_ID") or "").strip()
+        shopper_id = str(
+            self.settings.get("shopper_id") or os.getenv("GODADDY_SHOPPER_ID") or ""
+        ).strip()
         return shopper_id or None
 
     def _base_url(self) -> str:
-        return str(self.settings.get("api_base_url") or os.getenv("GODADDY_API_BASE_URL") or "https://api.godaddy.com")
+        return str(
+            self.settings.get("api_base_url")
+            or os.getenv("GODADDY_API_BASE_URL")
+            or "https://api.godaddy.com"
+        )
 
     def _timeout_seconds(self) -> int:
         return int(self.settings.get("timeout", 30))
