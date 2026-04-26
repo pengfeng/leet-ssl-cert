@@ -305,6 +305,10 @@ def _redact_env_value(value: str) -> str:
 def _provider_env_vars(namespace: str) -> list[str]:
     if namespace == "aliyun":
         return ["ALIBABA_CLOUD_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_SECRET"]
+    if namespace == "godaddy":
+        return ["GODADDY_API_KEY", "GODADDY_API_SECRET"]
+    if namespace == "gcp":
+        return ["GOOGLE_CLOUD_PROJECT"]
     if namespace == "aws":
         return []
     return []
