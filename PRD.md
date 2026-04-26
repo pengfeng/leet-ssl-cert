@@ -118,8 +118,8 @@ certificates:
 # Provider credentials (can also come from env vars or cloud credential files)
 providers:
   aliyun:
-    access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
-    access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
+    access_key_id: ${ALIBABA_CLOUD_ACCESS_KEY_ID}
+    access_key_secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
   cloudflare:
     api_token: ${CLOUDFLARE_API_TOKEN}
   aws:
@@ -441,8 +441,8 @@ all = ["leet-ssl-cert[aliyun,aws,cloudflare]"]
 pip install leet-ssl-cert[aliyun]
 
 # 2. Set credentials
-export ALICLOUD_ACCESS_KEY_ID=xxx
-export ALICLOUD_ACCESS_KEY_SECRET=xxx
+export ALIBABA_CLOUD_ACCESS_KEY_ID=xxx
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET=xxx
 
 # 3. Create config
 cat > leet-ssl-cert.yaml << 'EOF'
@@ -463,8 +463,8 @@ certificates:
 
 providers:
   aliyun:
-    access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
-    access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
+    access_key_id: ${ALIBABA_CLOUD_ACCESS_KEY_ID}
+    access_key_secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
 EOF
 
 # 4. Test with staging first

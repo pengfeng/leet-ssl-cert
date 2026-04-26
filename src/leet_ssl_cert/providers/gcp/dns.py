@@ -22,7 +22,9 @@ class GCPCloudDNSProvider(DNSProvider):
         except DNSError:
             raise
         except Exception as exc:
-            raise DNSError(f"Google Cloud DNS credential validation failed: {exc}") from exc
+            raise DNSError(
+                f"Google Cloud DNS credential validation failed: {exc}"
+            ) from exc
 
     def create_txt_record(self, zone: str, record_name: str, value: str) -> None:
         try:
@@ -33,7 +35,9 @@ class GCPCloudDNSProvider(DNSProvider):
         except DNSError:
             raise
         except Exception as exc:
-            raise DNSError(f"Failed creating Google Cloud DNS TXT record {record_name}: {exc}") from exc
+            raise DNSError(
+                f"Failed creating Google Cloud DNS TXT record {record_name}: {exc}"
+            ) from exc
 
     def delete_txt_record(self, zone: str, record_name: str, value: str) -> None:
         try:
@@ -46,14 +50,17 @@ class GCPCloudDNSProvider(DNSProvider):
         except DNSError:
             raise
         except Exception as exc:
-            raise DNSError(f"Failed deleting Google Cloud DNS TXT record {record_name}: {exc}") from exc
+            raise DNSError(
+                f"Failed deleting Google Cloud DNS TXT record {record_name}: {exc}"
+            ) from exc
 
     def find_zone_for_domain(self, domain: str) -> str:
         try:
             matches = [
                 zone.dns_name.rstrip(".")
                 for zone in self._client_or_raise().list_zones()
-                if domain == zone.dns_name.rstrip(".") or domain.endswith(f".{zone.dns_name.rstrip('.')}")
+                if domain == zone.dns_name.rstrip(".")
+                or domain.endswith(f".{zone.dns_name.rstrip('.')}")
             ]
         except DNSError:
             raise
@@ -68,7 +75,9 @@ class GCPCloudDNSProvider(DNSProvider):
         try:
             from google.cloud import dns
         except ImportError as exc:
-            raise DNSError("google-cloud-dns is not installed. Install leet-ssl-cert[gcp].") from exc
+            raise DNSError(
+                "google-cloud-dns is not installed. Install leet-ssl-cert[gcp]."
+            ) from exc
         return dns.Client(project=project)
 
     def _client_or_raise(self) -> Any:
@@ -79,7 +88,10 @@ class GCPCloudDNSProvider(DNSProvider):
     def _project(self) -> str:
         project = resolve_gcp_project(self.settings)
         if not project:
-            raise DNSError("gcp provider requires project, GCP_PROJECT, or GOOGLE_CLOUD_PROJECT")
+            raise DNSError(
+                "gcp provider requires a project: set the 'project' setting, "
+                "the GOOGLE_CLOUD_PROJECT env var, or configure Application Default Credentials"
+            )
         return project
 
     def _find_managed_zone(self, zone_name: str) -> Any:
@@ -92,7 +104,9 @@ class GCPCloudDNSProvider(DNSProvider):
     def _find_txt_record_set(self, managed_zone: Any, record_name: str) -> Any | None:
         fqdn = self._fqdn(record_name)
         for record_set in managed_zone.list_resource_record_sets():
-            if record_set.record_type == "TXT" and record_set.name.rstrip(".") == fqdn.rstrip("."):
+            if record_set.record_type == "TXT" and record_set.name.rstrip(
+                "."
+            ) == fqdn.rstrip("."):
                 return record_set
         return None
 
@@ -120,7 +134,10 @@ class GCPCloudDNSProvider(DNSProvider):
     def _record_values(self, record_set: Any | None) -> list[str]:
         if record_set is None:
             return []
-        return [self._normalize_rrdata(item) for item in getattr(record_set, "rrdatas", []) or []]
+        return [
+            self._normalize_rrdata(item)
+            for item in getattr(record_set, "rrdatas", []) or []
+        ]
 
     def _normalize_rrdata(self, value: str) -> str:
         normalized = str(value).strip()

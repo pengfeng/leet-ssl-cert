@@ -24,7 +24,10 @@ def test_build_init_config_includes_provider_placeholders() -> None:
         deploy_settings={"region": "us-east-1"},
     )
 
-    assert document["providers"]["aliyun"]["access_key_id"] == "${ALICLOUD_ACCESS_KEY_ID}"
+    assert (
+        document["providers"]["aliyun"]["access_key_id"]
+        == "${ALIBABA_CLOUD_ACCESS_KEY_ID}"
+    )
     assert document["providers"]["aws"] == {}
     assert document["certificates"][0]["deploy"][0]["provider"] == "aws_acm"
 
@@ -36,10 +39,14 @@ def test_build_init_config_includes_gcp_project_placeholder() -> None:
         domains=["example.com"],
         dns_provider="gcp",
         deployer="gcp_lb",
-        deploy_settings={"project": "my-gcp-project", "scope": "global", "target_https_proxy": "edge-proxy"},
+        deploy_settings={
+            "project": "my-gcp-project",
+            "scope": "global",
+            "target_https_proxy": "edge-proxy",
+        },
     )
 
-    assert document["providers"]["gcp"]["project"] == "${GCP_PROJECT}"
+    assert document["providers"]["gcp"]["project"] == "${GOOGLE_CLOUD_PROJECT}"
     assert document["certificates"][0]["deploy"][0]["provider"] == "gcp_lb"
 
 
@@ -50,12 +57,16 @@ def test_build_init_config_includes_godaddy_placeholders() -> None:
         domains=["example.com"],
         dns_provider="godaddy",
         deployer="gcp_lb",
-        deploy_settings={"project": "my-gcp-project", "scope": "global", "target_https_proxy": "edge-proxy"},
+        deploy_settings={
+            "project": "my-gcp-project",
+            "scope": "global",
+            "target_https_proxy": "edge-proxy",
+        },
     )
 
     assert document["providers"]["godaddy"]["api_key"] == "${GODADDY_API_KEY}"
     assert document["providers"]["godaddy"]["api_secret"] == "${GODADDY_API_SECRET}"
-    assert document["providers"]["gcp"]["project"] == "${GCP_PROJECT}"
+    assert document["providers"]["gcp"]["project"] == "${GOOGLE_CLOUD_PROJECT}"
 
 
 def test_write_init_config_writes_yaml(tmp_path: Path) -> None:
@@ -76,15 +87,17 @@ def test_preflight_provider_environment_reports_missing_env_vars(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.delenv("ALICLOUD_ACCESS_KEY_ID", raising=False)
-    monkeypatch.delenv("ALICLOUD_ACCESS_KEY_SECRET", raising=False)
+    monkeypatch.delenv("ALIBABA_CLOUD_ACCESS_KEY_ID", raising=False)
+    monkeypatch.delenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", raising=False)
 
     with pytest.raises(ConfigError, match="Missing required environment variables"):
         preflight_provider_environment(dns_provider="aliyun", deployer="aliyun_clb")
 
     captured = capsys.readouterr()
-    assert "ALICLOUD_ACCESS_KEY_ID" in captured.err
-    assert "Alibaba Cloud access key ID used to authenticate API requests." in captured.err
+    assert "ALIBABA_CLOUD_ACCESS_KEY_ID" in captured.err
+    assert (
+        "Alibaba Cloud access key ID used to authenticate API requests." in captured.err
+    )
     assert "value: <not set>" in captured.err
 
 
@@ -92,8 +105,8 @@ def test_preflight_provider_environment_redacts_sensitive_env_values(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setenv("ALICLOUD_ACCESS_KEY_ID", "abc123456def")
-    monkeypatch.setenv("ALICLOUD_ACCESS_KEY_SECRET", "sec123456ret")
+    monkeypatch.setenv("ALIBABA_CLOUD_ACCESS_KEY_ID", "abc123456def")
+    monkeypatch.setenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", "sec123456ret")
 
     preflight_provider_environment(dns_provider="aliyun", deployer="aliyun_clb")
 
@@ -109,14 +122,14 @@ def test_print_provider_environment_snapshot_is_scoped(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("AWS_PROFILE", "dev")
-    monkeypatch.delenv("ALICLOUD_ACCESS_KEY_ID", raising=False)
+    monkeypatch.delenv("ALIBABA_CLOUD_ACCESS_KEY_ID", raising=False)
 
     print_provider_environment_snapshot("aws")
 
     captured = capsys.readouterr()
     assert "AWS_PROFILE" in captured.err
     assert "value: dev" in captured.err
-    assert "ALICLOUD_ACCESS_KEY_ID" not in captured.err
+    assert "ALIBABA_CLOUD_ACCESS_KEY_ID" not in captured.err
 
 
 def test_preflight_provider_environment_reports_missing_godaddy_env_vars(
@@ -125,7 +138,7 @@ def test_preflight_provider_environment_reports_missing_godaddy_env_vars(
 ) -> None:
     monkeypatch.delenv("GODADDY_API_KEY", raising=False)
     monkeypatch.delenv("GODADDY_API_SECRET", raising=False)
-    monkeypatch.setenv("GCP_PROJECT", "my-gcp-project")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "my-gcp-project")
 
     with pytest.raises(ConfigError, match="Missing required environment variables"):
         preflight_provider_environment(dns_provider="godaddy", deployer="gcp_lb")

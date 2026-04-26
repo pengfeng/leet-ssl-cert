@@ -10,7 +10,9 @@ from leet_ssl_cert.providers.gcp.lb import GCPLoadBalancerDeployer
 
 
 class FakeRecordSet:
-    def __init__(self, name: str, record_type: str, ttl: int, rrdatas: list[str]) -> None:
+    def __init__(
+        self, name: str, record_type: str, ttl: int, rrdatas: list[str]
+    ) -> None:
         self.name = name
         self.record_type = record_type
         self.ttl = ttl
@@ -46,24 +48,32 @@ class FakeManagedZone:
         self.last_changes = FakeChanges()
         return self.last_changes
 
-    def resource_record_set(self, name: str, record_type: str, ttl: int, rrdatas: list[str]) -> FakeRecordSet:
+    def resource_record_set(
+        self, name: str, record_type: str, ttl: int, rrdatas: list[str]
+    ) -> FakeRecordSet:
         return FakeRecordSet(name, record_type, ttl, rrdatas)
 
 
-def test_gcp_dns_provider_uses_project_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GCP_PROJECT", "env-project")
+def test_gcp_dns_provider_uses_project_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "env-project")
     provider = GCPCloudDNSProvider({})
 
     assert provider._project() == "env-project"
 
 
 def test_gcp_dns_provider_create_merges_txt_values() -> None:
-    existing = FakeRecordSet("_acme-challenge.example.com.", "TXT", 60, ["existing-token"])
+    existing = FakeRecordSet(
+        "_acme-challenge.example.com.", "TXT", 60, ["existing-token"]
+    )
     zone = FakeManagedZone("example.com.", [existing])
     provider = GCPCloudDNSProvider({"project": "my-gcp-project"})
     provider._client = SimpleNamespace(list_zones=lambda max_results=None: [zone])
 
-    provider.create_txt_record("example.com", "_acme-challenge.example.com", "new-token")
+    provider.create_txt_record(
+        "example.com", "_acme-challenge.example.com", "new-token"
+    )
 
     assert zone.last_changes is not None
     assert zone.last_changes.deletions[0] is existing
@@ -71,12 +81,16 @@ def test_gcp_dns_provider_create_merges_txt_values() -> None:
 
 
 def test_gcp_dns_provider_delete_removes_matching_value_only() -> None:
-    existing = FakeRecordSet("_acme-challenge.example.com.", "TXT", 60, ['"keep me"', "remove-me"])
+    existing = FakeRecordSet(
+        "_acme-challenge.example.com.", "TXT", 60, ['"keep me"', "remove-me"]
+    )
     zone = FakeManagedZone("example.com.", [existing])
     provider = GCPCloudDNSProvider({"project": "my-gcp-project"})
     provider._client = SimpleNamespace(list_zones=lambda max_results=None: [zone])
 
-    provider.delete_txt_record("example.com", "_acme-challenge.example.com", "remove-me")
+    provider.delete_txt_record(
+        "example.com", "_acme-challenge.example.com", "remove-me"
+    )
 
     assert zone.last_changes is not None
     assert zone.last_changes.deletions[0] is existing
@@ -106,13 +120,19 @@ def test_gcp_lb_binds_global_target_https_proxy() -> None:
             "target_https_proxy": "edge-proxy",
         }
     )
-    deployer._compute_client = lambda name: FakeTargetHttpsProxyClient() if name == "TargetHttpsProxiesClient" else None
+    deployer._compute_client = (
+        lambda name: FakeTargetHttpsProxyClient()
+        if name == "TargetHttpsProxiesClient"
+        else None
+    )
 
     result = deployer.bind_certificate("cert-1")
 
     assert result.bound_to == "targetHttpsProxy/edge-proxy"
     assert result.old_certificate_id == "old-cert"
-    assert calls[1][1]["target_https_proxies_set_ssl_certificates_request_resource"]["ssl_certificates"] == [
+    assert calls[1][1]["target_https_proxies_set_ssl_certificates_request_resource"][
+        "ssl_certificates"
+    ] == [
         "https://www.googleapis.com/compute/v1/projects/my-gcp-project/global/sslCertificates/cert-1"
     ]
 
@@ -133,7 +153,11 @@ def test_gcp_lb_upload_uses_regional_certificates_client() -> None:
             "target_https_proxy": "regional-proxy",
         }
     )
-    deployer._compute_client = lambda name: FakeRegionalCertificatesClient() if name == "RegionSslCertificatesClient" else None
+    deployer._compute_client = (
+        lambda name: FakeRegionalCertificatesClient()
+        if name == "RegionSslCertificatesClient"
+        else None
+    )
 
     certificate_id = deployer.upload_certificate("Site_Prod", "CERT", "KEY")
 
@@ -159,5 +183,5 @@ def test_gcp_lb_rejects_regional_target_ssl_proxy() -> None:
 def test_gcp_dns_provider_requires_project() -> None:
     provider = GCPCloudDNSProvider({})
 
-    with pytest.raises(DNSError, match="requires project"):
+    with pytest.raises(DNSError, match="requires a project"):
         provider._project()

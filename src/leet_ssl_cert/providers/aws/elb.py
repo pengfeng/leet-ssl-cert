@@ -19,7 +19,9 @@ class AWSELBDeployer(AWSACMDeployer):
 
         if listener_arn:
             client = self._elbv2_client(region)
-            old_certificate_id = self._get_listener_default_certificate(client, listener_arn)
+            old_certificate_id = self._get_listener_default_certificate(
+                client, listener_arn
+            )
             client.modify_listener(
                 ListenerArn=listener_arn,
                 Certificates=[{"CertificateArn": certificate_id}],
@@ -47,7 +49,9 @@ class AWSELBDeployer(AWSACMDeployer):
                 old_certificate_id=old_certificate_id,
             )
 
-        raise DeployError("aws_elb deployer requires either listener_arn or load_balancer_name")
+        raise DeployError(
+            "aws_elb deployer requires either listener_arn or load_balancer_name"
+        )
 
     def validate_credentials(self) -> None:
         region = self._required("region")
@@ -58,9 +62,13 @@ class AWSELBDeployer(AWSACMDeployer):
             self._elbv2_client(region).describe_listeners(ListenerArns=[listener_arn])
             return
         if load_balancer_name:
-            self._classic_elb_client(region).describe_load_balancers(LoadBalancerNames=[load_balancer_name])
+            self._classic_elb_client(region).describe_load_balancers(
+                LoadBalancerNames=[load_balancer_name]
+            )
             return
-        raise DeployError("aws_elb deployer requires either listener_arn or load_balancer_name")
+        raise DeployError(
+            "aws_elb deployer requires either listener_arn or load_balancer_name"
+        )
 
     def cleanup_old_certificates(self, name: str, keep: int = 1) -> list[str]:
         deleted = super().cleanup_old_certificates(name, keep)
@@ -77,7 +85,9 @@ class AWSELBDeployer(AWSACMDeployer):
                     pass
         return deleted
 
-    def _get_listener_default_certificate(self, client: Any, listener_arn: str) -> str | None:
+    def _get_listener_default_certificate(
+        self, client: Any, listener_arn: str
+    ) -> str | None:
         response = client.describe_listeners(ListenerArns=[listener_arn])
         listeners = response.get("Listeners", [])
         if not listeners:
@@ -97,7 +107,9 @@ class AWSELBDeployer(AWSACMDeployer):
         try:
             import boto3
         except ImportError as exc:
-            raise DeployError("boto3 is not installed. Install leet-ssl-cert[aws].") from exc
+            raise DeployError(
+                "boto3 is not installed. Install leet-ssl-cert[aws]."
+            ) from exc
         return boto3.session.Session(
             aws_access_key_id=self.settings.get("access_key_id"),
             aws_secret_access_key=self.settings.get("secret_access_key"),

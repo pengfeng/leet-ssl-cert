@@ -118,7 +118,9 @@ def _parse_config(raw: dict[str, Any], path: Path) -> AppConfig:
     )
 
     storage = StorageConfig(
-        base_dir=Path(str(storage_data.get("base_dir", DEFAULT_STORAGE_DIR))).expanduser(),
+        base_dir=Path(
+            str(storage_data.get("base_dir", DEFAULT_STORAGE_DIR))
+        ).expanduser(),
     )
 
     certificates: list[CertificateConfig] = []
@@ -130,12 +132,18 @@ def _parse_config(raw: dict[str, Any], path: Path) -> AppConfig:
             if not isinstance(deploy_item, dict):
                 raise ConfigError("Each deploy target must be a mapping")
             provider = str(deploy_item.get("provider", "")).strip()
-            settings = {key: value for key, value in deploy_item.items() if key != "provider"}
-            deploy_targets.append(DeployTargetConfig(provider=provider, settings=settings))
+            settings = {
+                key: value for key, value in deploy_item.items() if key != "provider"
+            }
+            deploy_targets.append(
+                DeployTargetConfig(provider=provider, settings=settings)
+            )
         certificates.append(
             CertificateConfig(
                 name=str(item.get("name", "")).strip(),
-                domains=[str(domain).strip() for domain in item.get("domains", []) or []],
+                domains=[
+                    str(domain).strip() for domain in item.get("domains", []) or []
+                ],
                 dns_provider=str(item.get("dns_provider", "")).strip(),
                 deploy=deploy_targets,
             )
@@ -180,12 +188,18 @@ def _validate_config(config: AppConfig) -> None:
             raise ConfigError(f"Duplicate certificate name: {certificate.name}")
         names.add(certificate.name)
         if not certificate.domains:
-            raise ConfigError(f"certificate {certificate.name!r} must define at least one domain")
+            raise ConfigError(
+                f"certificate {certificate.name!r} must define at least one domain"
+            )
         if not certificate.dns_provider:
-            raise ConfigError(f"certificate {certificate.name!r} must define dns_provider")
+            raise ConfigError(
+                f"certificate {certificate.name!r} must define dns_provider"
+            )
         for target in certificate.deploy:
             if not target.provider:
-                raise ConfigError(f"certificate {certificate.name!r} has a deploy target without provider")
+                raise ConfigError(
+                    f"certificate {certificate.name!r} has a deploy target without provider"
+                )
 
 
 def _interpolate_env(value: Any) -> Any:

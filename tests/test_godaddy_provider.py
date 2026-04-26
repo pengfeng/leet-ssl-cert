@@ -28,7 +28,9 @@ def test_godaddy_create_merges_existing_txt_values() -> None:
 
     provider._request = fake_request  # type: ignore[method-assign]
 
-    provider.create_txt_record("example.com", "_acme-challenge.example.com", "new-token")
+    provider.create_txt_record(
+        "example.com", "_acme-challenge.example.com", "new-token"
+    )
 
     assert calls == [
         ("GET", "/v1/domains/example.com/records/TXT/_acme-challenge", None),
@@ -52,7 +54,9 @@ def test_godaddy_delete_removes_matching_value_only() -> None:
 
     provider._request = fake_request  # type: ignore[method-assign]
 
-    provider.delete_txt_record("example.com", "_acme-challenge.example.com", "remove-me")
+    provider.delete_txt_record(
+        "example.com", "_acme-challenge.example.com", "remove-me"
+    )
 
     assert calls == [
         ("GET", "/v1/domains/example.com/records/TXT/_acme-challenge", None),
@@ -76,7 +80,9 @@ def test_godaddy_delete_removes_record_when_last_value_is_deleted() -> None:
 
     provider._request = fake_request  # type: ignore[method-assign]
 
-    provider.delete_txt_record("example.com", "_acme-challenge.example.com", "remove-me")
+    provider.delete_txt_record(
+        "example.com", "_acme-challenge.example.com", "remove-me"
+    )
 
     assert calls == [
         ("GET", "/v1/domains/example.com/records/TXT/_acme-challenge", None),

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -22,8 +22,8 @@ DEPLOYER_CHOICES_BY_PROVIDER = {
     "gcp": ("gcp_lb",),
 }
 ENV_VAR_DEFINITIONS = {
-    "ALICLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
-    "ALICLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
+    "ALIBABA_CLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
+    "ALIBABA_CLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
     "AWS_ACCESS_KEY_ID": "AWS access key ID used by boto3 when using environment-based credentials.",
     "AWS_SECRET_ACCESS_KEY": "AWS secret access key paired with AWS_ACCESS_KEY_ID.",
     "AWS_SESSION_TOKEN": "Temporary AWS session token used with short-lived credentials.",
@@ -31,15 +31,14 @@ ENV_VAR_DEFINITIONS = {
     "AWS_REGION": "Default AWS region used by boto3 clients.",
     "AWS_DEFAULT_REGION": "Fallback AWS region used by boto3 when AWS_REGION is unset.",
     "GOOGLE_APPLICATION_CREDENTIALS": "Path to a Google Cloud service account JSON key for Application Default Credentials.",
-    "GCP_PROJECT": "Google Cloud project ID used by the GCP provider.",
-    "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID recognized by Google Cloud SDKs.",
+    "GOOGLE_CLOUD_PROJECT": "Google Cloud project ID recognized by Google Cloud SDKs and used by the GCP provider.",
     "GODADDY_API_KEY": "GoDaddy production API key used to authenticate Domains API requests.",
     "GODADDY_API_SECRET": "GoDaddy production API secret paired with GODADDY_API_KEY.",
     "GODADDY_SHOPPER_ID": "Optional GoDaddy shopper ID for reseller scenarios that require X-Shopper-Id.",
     "GODADDY_API_BASE_URL": "Optional GoDaddy API base URL override, such as the OTE environment.",
 }
 SETUP_ENV_VARS_BY_PROVIDER = {
-    "aliyun": ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"],
+    "aliyun": ["ALIBABA_CLOUD_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_SECRET"],
     "aws": [
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
@@ -48,7 +47,7 @@ SETUP_ENV_VARS_BY_PROVIDER = {
         "AWS_REGION",
         "AWS_DEFAULT_REGION",
     ],
-    "gcp": ["GOOGLE_APPLICATION_CREDENTIALS", "GCP_PROJECT", "GOOGLE_CLOUD_PROJECT"],
+    "gcp": ["GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_PROJECT"],
     "godaddy": ["GODADDY_API_KEY", "GODADDY_API_SECRET"],
 }
 SUPPORTED_SETUP_ENV_VARS = [
@@ -69,7 +68,9 @@ def build_init_config(
 ) -> dict[str, Any]:
     """Render a config document from interactive answers."""
     namespaces = {_provider_namespace(dns_provider), _provider_namespace(deployer)}
-    providers = {namespace: _provider_placeholder_settings(namespace) for namespace in namespaces}
+    providers = {
+        namespace: _provider_placeholder_settings(namespace) for namespace in namespaces
+    }
     return {
         "account": {"email": email},
         "acme": {
@@ -90,11 +91,15 @@ def build_init_config(
     }
 
 
-def write_init_config(document: dict[str, Any], output_path: str | Path, *, force: bool = False) -> Path:
+def write_init_config(
+    document: dict[str, Any], output_path: str | Path, *, force: bool = False
+) -> Path:
     """Write an init-generated config file to disk."""
     path = Path(output_path).expanduser()
     if path.exists() and not force:
-        raise ConfigError(f"Config file already exists: {path}. Use --force to overwrite it.")
+        raise ConfigError(
+            f"Config file already exists: {path}. Use --force to overwrite it."
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
     return path
@@ -107,10 +112,14 @@ def validate_setup(
     deploy_settings: dict[str, Any],
 ) -> None:
     """Validate provider and deployer credentials using environment-backed settings."""
-    dns_settings = _runtime_provider_settings(_provider_namespace(dns_provider), deploy_settings)
+    dns_settings = _runtime_provider_settings(
+        _provider_namespace(dns_provider), deploy_settings
+    )
     get_dns_provider(dns_provider, dns_settings).validate_credentials()
 
-    deployer_settings = _runtime_provider_settings(_provider_namespace(deployer), deploy_settings)
+    deployer_settings = _runtime_provider_settings(
+        _provider_namespace(deployer), deploy_settings
+    )
     deployer_settings.update(deploy_settings)
     get_deployer(deployer, deployer_settings).validate_credentials()
 
@@ -137,7 +146,11 @@ def initialize_config(
         deploy_settings=deploy_settings,
     )
     if validate:
-        validate_setup(dns_provider=dns_provider, deployer=deployer, deploy_settings=deploy_settings)
+        validate_setup(
+            dns_provider=dns_provider,
+            deployer=deployer,
+            deploy_settings=deploy_settings,
+        )
     written_path = write_init_config(document, output_path, force=force)
     return InitResult(
         output_path=written_path,
@@ -155,7 +168,9 @@ def preflight_provider_environment(*, dns_provider: str, deployer: str) -> None:
     )
 
 
-def preflight_provider_namespaces(*, dns_provider: str, deployment_provider: str) -> None:
+def preflight_provider_namespaces(
+    *, dns_provider: str, deployment_provider: str
+) -> None:
     """Print required env vars for init validation using DNS and deployment provider namespaces."""
     _preflight_provider_namespaces(
         dns_provider_namespace=_provider_namespace(dns_provider),
@@ -163,7 +178,9 @@ def preflight_provider_namespaces(*, dns_provider: str, deployment_provider: str
     )
 
 
-def _preflight_provider_namespaces(*, dns_provider_namespace: str, deployment_provider_namespace: str) -> None:
+def _preflight_provider_namespaces(
+    *, dns_provider_namespace: str, deployment_provider_namespace: str
+) -> None:
     namespaces = {dns_provider_namespace, deployment_provider_namespace}
     env_names: list[str] = []
     for namespace in sorted(namespaces):
@@ -178,7 +195,9 @@ def print_setup_environment_snapshot() -> None:
 
 def print_provider_environment_snapshot(provider: str) -> None:
     """Print the env vars commonly used by one provider before interactive setup starts."""
-    _emit_env_report(SETUP_ENV_VARS_BY_PROVIDER.get(provider, []), fail_on_missing=False)
+    _emit_env_report(
+        SETUP_ENV_VARS_BY_PROVIDER.get(provider, []), fail_on_missing=False
+    )
 
 
 def _provider_namespace(provider_name: str) -> str:
@@ -190,13 +209,13 @@ def _provider_namespace(provider_name: str) -> str:
 def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
     if namespace == "aliyun":
         return {
-            "access_key_id": "${ALICLOUD_ACCESS_KEY_ID}",
-            "access_key_secret": "${ALICLOUD_ACCESS_KEY_SECRET}",
+            "access_key_id": "${ALIBABA_CLOUD_ACCESS_KEY_ID}",
+            "access_key_secret": "${ALIBABA_CLOUD_ACCESS_KEY_SECRET}",
         }
     if namespace == "aws":
         return {}
     if namespace == "gcp":
-        return {"project": "${GCP_PROJECT}"}
+        return {"project": "${GOOGLE_CLOUD_PROJECT}"}
     if namespace == "godaddy":
         return {
             "api_key": "${GODADDY_API_KEY}",
@@ -205,15 +224,17 @@ def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
     return {}
 
 
-def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) -> dict[str, Any]:
+def _runtime_provider_settings(
+    namespace: str, deploy_settings: dict[str, Any]
+) -> dict[str, Any]:
     if namespace == "aliyun":
-        access_key_id = os.getenv("ALICLOUD_ACCESS_KEY_ID")
-        access_key_secret = os.getenv("ALICLOUD_ACCESS_KEY_SECRET")
+        access_key_id = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID")
+        access_key_secret = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
         settings = {
             "access_key_id": access_key_id,
             "access_key_secret": access_key_secret,
         }
-        region = os.getenv("ALICLOUD_REGION") or deploy_settings.get("region")
+        region = os.getenv("ALIBABA_CLOUD_REGION_ID") or deploy_settings.get("region")
         if region:
             settings["region"] = region
         return settings
@@ -228,13 +249,17 @@ def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) 
             env_value = os.getenv(env_name)
             if env_value:
                 settings[key] = env_value
-        region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or deploy_settings.get("region")
+        region = (
+            os.getenv("AWS_REGION")
+            or os.getenv("AWS_DEFAULT_REGION")
+            or deploy_settings.get("region")
+        )
         if region:
             settings["region"] = region
         return settings
     if namespace == "gcp":
         settings: dict[str, Any] = {}
-        project = os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or deploy_settings.get("project")
+        project = os.getenv("GOOGLE_CLOUD_PROJECT") or deploy_settings.get("project")
         if project:
             settings["project"] = project
         return settings
@@ -271,7 +296,10 @@ def _emit_env_report(env_names: list[str], *, fail_on_missing: bool) -> None:
     missing: list[str] = []
     for env_name in env_names:
         value = os.getenv(env_name)
-        definition = ENV_VAR_DEFINITIONS.get(env_name, "Environment variable referenced by the configuration or provider setup.")
+        definition = ENV_VAR_DEFINITIONS.get(
+            env_name,
+            "Environment variable referenced by the configuration or provider setup.",
+        )
         stream.write(f"- {env_name}: {definition}\n")
         stream.write(f"  value: {_display_env_value(env_name, value)}\n")
         if value in (None, ""):
@@ -280,7 +308,9 @@ def _emit_env_report(env_names: list[str], *, fail_on_missing: bool) -> None:
         stream.write("\nMissing required environment variables:\n")
         for env_name in missing:
             stream.write(f"- {env_name}\n")
-        raise ConfigError("Missing required environment variables. Set the variables listed above and retry.")
+        raise ConfigError(
+            "Missing required environment variables. Set the variables listed above and retry."
+        )
 
 
 def _display_env_value(env_name: str, value: str | None) -> str:
@@ -305,7 +335,11 @@ def _redact_env_value(value: str) -> str:
 
 def _provider_env_vars(namespace: str) -> list[str]:
     if namespace == "aliyun":
-        return ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"]
+        return ["ALIBABA_CLOUD_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_SECRET"]
+    if namespace == "godaddy":
+        return ["GODADDY_API_KEY", "GODADDY_API_SECRET"]
+    if namespace == "gcp":
+        return ["GOOGLE_CLOUD_PROJECT"]
     if namespace == "aws":
         return []
     return []

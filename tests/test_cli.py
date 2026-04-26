@@ -93,7 +93,9 @@ def test_init_command_writes_config(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert f"Wrote config to {output_path}" in result.output
-    saved_inputs = json.loads((tmp_path / ".leet" / ".init-inputs.json").read_text(encoding="utf-8"))
+    saved_inputs = json.loads(
+        (tmp_path / ".leet" / ".init-inputs.json").read_text(encoding="utf-8")
+    )
     assert saved_inputs["email"] == "admin@example.com"
     assert saved_inputs["region"] == "cn-hangzhou"
 
@@ -302,7 +304,9 @@ def test_prompt_region_accepts_custom(monkeypatch) -> None:
     assert region == "me-central-1"
 
 
-def test_init_fails_on_env_preflight_after_dns_provider_prompt(monkeypatch, tmp_path) -> None:
+def test_init_fails_on_env_preflight_after_dns_provider_prompt(
+    monkeypatch, tmp_path
+) -> None:
     events: list[str] = []
 
     def fake_prompt(text, **kwargs):
@@ -313,9 +317,14 @@ def test_init_fails_on_env_preflight_after_dns_provider_prompt(monkeypatch, tmp_
 
     monkeypatch.setattr(cli.click, "prompt", fake_prompt)
     monkeypatch.chdir(tmp_path)
+
     def fake_preflight(**kwargs):
-        events.append(f"preflight:{kwargs['dns_provider']}->{kwargs['deployment_provider']}")
-        raise ConfigError("Missing required environment variables. Set the variables listed above and retry.")
+        events.append(
+            f"preflight:{kwargs['dns_provider']}->{kwargs['deployment_provider']}"
+        )
+        raise ConfigError(
+            "Missing required environment variables. Set the variables listed above and retry."
+        )
 
     monkeypatch.setattr(cli, "preflight_provider_namespaces", fake_preflight)
     runner = CliRunner()
@@ -327,7 +336,9 @@ def test_init_fails_on_env_preflight_after_dns_provider_prompt(monkeypatch, tmp_
     assert events == ["prompt:DNS provider", "preflight:aliyun->aliyun"]
 
 
-def test_init_filters_deployer_prompt_to_selected_cloud_provider(monkeypatch, tmp_path) -> None:
+def test_init_filters_deployer_prompt_to_selected_cloud_provider(
+    monkeypatch, tmp_path
+) -> None:
     events: list[str] = []
 
     def fake_prompt(text, **kwargs):
@@ -341,7 +352,13 @@ def test_init_filters_deployer_prompt_to_selected_cloud_provider(monkeypatch, tm
 
     monkeypatch.setattr(cli.click, "prompt", fake_prompt)
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "preflight_provider_namespaces", lambda **kwargs: events.append(f"preflight:{kwargs['dns_provider']}->{kwargs['deployment_provider']}"))
+    monkeypatch.setattr(
+        cli,
+        "preflight_provider_namespaces",
+        lambda **kwargs: events.append(
+            f"preflight:{kwargs['dns_provider']}->{kwargs['deployment_provider']}"
+        ),
+    )
     monkeypatch.setattr(
         cli,
         "initialize_config",
@@ -375,7 +392,9 @@ def test_init_filters_deployer_prompt_to_selected_cloud_provider(monkeypatch, tm
     assert events == ["prompt:DNS provider", "prompt:Deployment provider"]
 
 
-def test_init_rejects_deployer_outside_selected_cloud_provider(monkeypatch, tmp_path) -> None:
+def test_init_rejects_deployer_outside_selected_cloud_provider(
+    monkeypatch, tmp_path
+) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli, "preflight_provider_namespaces", lambda **kwargs: None)
     runner = CliRunner()
@@ -393,7 +412,10 @@ def test_init_rejects_deployer_outside_selected_cloud_provider(monkeypatch, tmp_
     )
 
     assert result.exit_code != 0
-    assert "Deployment provider 'aws_acm' is not supported for cloud provider 'aliyun'." in result.output
+    assert (
+        "Deployment provider 'aws_acm' is not supported for cloud provider 'aliyun'."
+        in result.output
+    )
 
 
 def test_init_requires_provider() -> None:

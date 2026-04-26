@@ -35,8 +35,8 @@ You can create a custom policy with narrower permissions if needed. The minimum 
 Export the keys as environment variables:
 
 ```bash
-export ALICLOUD_ACCESS_KEY_ID=your-access-key-id
-export ALICLOUD_ACCESS_KEY_SECRET=your-access-key-secret
+export ALIBABA_CLOUD_ACCESS_KEY_ID=your-access-key-id
+export ALIBABA_CLOUD_ACCESS_KEY_SECRET=your-access-key-secret
 ```
 
 The config file references them via `${VAR_NAME}` syntax:
@@ -44,15 +44,15 @@ The config file references them via `${VAR_NAME}` syntax:
 ```yaml
 providers:
   aliyun:
-    access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
-    access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
+    access_key_id: ${ALIBABA_CLOUD_ACCESS_KEY_ID}
+    access_key_secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
 ```
 
 ## DNS Provider
 
 Set `dns_provider: aliyun` on a certificate entry. The tool automatically finds the matching DNS zone from your Alibaba Cloud DNS account.
 
-No extra configuration is needed beyond the credentials above. The region is resolved from the deployer config or the `ALICLOUD_REGION` environment variable.
+No extra configuration is needed beyond the credentials above. The region is resolved from the deployer config or the `ALIBABA_CLOUD_REGION_ID` environment variable.
 
 ## Deployers
 

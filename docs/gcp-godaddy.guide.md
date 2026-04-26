@@ -45,7 +45,7 @@ Recommended environment variables:
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-export GCP_PROJECT=my-gcp-project
+export GOOGLE_CLOUD_PROJECT=my-gcp-project
 ```
 
 Recommended IAM role for this tool:
@@ -134,7 +134,7 @@ providers:
     api_key: ${GODADDY_API_KEY}
     api_secret: ${GODADDY_API_SECRET}
   gcp:
-    project: ${GCP_PROJECT}
+    project: ${GOOGLE_CLOUD_PROJECT}
 ```
 
 Optional GoDaddy settings you can add manually under `providers.godaddy`:

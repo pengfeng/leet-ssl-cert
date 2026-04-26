@@ -35,7 +35,7 @@ The Google Cloud SDKs used by `leet-ssl-cert` authenticate through [Application 
 
 ```bash
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-export GCP_PROJECT=your-project-id
+export GOOGLE_CLOUD_PROJECT=your-project-id
 ```
 
 ### Option 2 -- gcloud CLI
@@ -87,7 +87,7 @@ certificates:
 
 providers:
   gcp:
-    project: ${GCP_PROJECT}
+    project: ${GOOGLE_CLOUD_PROJECT}
 ```
 
 ### Regional HTTPS proxy
@@ -147,4 +147,4 @@ leet-ssl-cert init gcp \
 
 - `gcp_lb` stores self-managed certificates in Compute Engine SSL certificate resources.
 - Regional mode currently supports only `target_https_proxy`.
-- If `project` is omitted from config, the tool falls back to `GCP_PROJECT`, `GOOGLE_CLOUD_PROJECT`, or the project discovered from ADC.
+- If `project` is omitted from config, the tool falls back to the `GOOGLE_CLOUD_PROJECT` environment variable, then the project discovered from ADC.

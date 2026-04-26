@@ -53,7 +53,12 @@ def build_service(config_path: str | None) -> CertificateService:
 
 
 @click.group()
-@click.option("--config", "config_path", type=click.Path(dir_okay=False, path_type=Path), help="Path to config file.")
+@click.option(
+    "--config",
+    "config_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Path to config file.",
+)
 @click.pass_context
 def main(ctx: click.Context, config_path: Path | None) -> None:
     """Automate ACME issuance and cloud certificate deployment."""
@@ -63,12 +68,21 @@ def main(ctx: click.Context, config_path: Path | None) -> None:
 
 @main.command()
 @click.option("--name", help="Process only one certificate by logical name.")
-@click.option("--force", is_flag=True, help="Force renewal even if certificate is not due.")
-@click.option("--dry-run", is_flag=True, help="Report what would happen without mutating state.")
+@click.option(
+    "--force", is_flag=True, help="Force renewal even if certificate is not due."
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Report what would happen without mutating state."
+)
 @click.pass_context
 def issue(ctx: click.Context, name: str | None, force: bool, dry_run: bool) -> None:
     """Issue or renew certificates."""
-    _run_command(ctx, lambda service: _render_issue(service.issue(name=name, force=force, dry_run=dry_run)))
+    _run_command(
+        ctx,
+        lambda service: _render_issue(
+            service.issue(name=name, force=force, dry_run=dry_run)
+        ),
+    )
 
 
 @main.command()
@@ -81,12 +95,21 @@ def deploy(ctx: click.Context, name: str | None) -> None:
 
 @main.command()
 @click.option("--name", help="Run only one certificate by logical name.")
-@click.option("--force", is_flag=True, help="Force renewal even if certificate is not due.")
-@click.option("--dry-run", is_flag=True, help="Report what would happen without mutating state.")
+@click.option(
+    "--force", is_flag=True, help="Force renewal even if certificate is not due."
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Report what would happen without mutating state."
+)
 @click.pass_context
 def run(ctx: click.Context, name: str | None, force: bool, dry_run: bool) -> None:
     """Issue and then deploy certificates."""
-    _run_command(ctx, lambda service: _render_run(service.run(name=name, force=force, dry_run=dry_run)))
+    _run_command(
+        ctx,
+        lambda service: _render_run(
+            service.run(name=name, force=force, dry_run=dry_run)
+        ),
+    )
 
 
 @main.command()
@@ -98,24 +121,53 @@ def check(ctx: click.Context, name: str | None) -> None:
 
 
 @main.command()
-@click.option("--name", "certificate_name", required=True, help="Logical certificate name.")
+@click.option(
+    "--name", "certificate_name", required=True, help="Logical certificate name."
+)
 @click.pass_context
 def revoke(ctx: click.Context, certificate_name: str) -> None:
     """Revoke a stored certificate via ACME."""
-    _run_command(ctx, lambda service: _render_revoke(service.revoke(name=certificate_name)))
+    _run_command(
+        ctx, lambda service: _render_revoke(service.revoke(name=certificate_name))
+    )
 
 
 @main.command()
-@click.argument("provider", metavar="PROVIDER", type=click.Choice(INIT_PROVIDER_CHOICES))
-@click.option("--output", "output_path", default="leet-ssl-cert.yaml", show_default=True, type=click.Path(dir_okay=False, path_type=Path), help="Where to write the generated config.")
+@click.argument(
+    "provider", metavar="PROVIDER", type=click.Choice(INIT_PROVIDER_CHOICES)
+)
+@click.option(
+    "--output",
+    "output_path",
+    default="leet-ssl-cert.yaml",
+    show_default=True,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Where to write the generated config.",
+)
 @click.option("--force", is_flag=True, help="Overwrite an existing config file.")
-@click.option("--skip-validation", is_flag=True, help="Write the config without validating provider credentials.")
-@click.option("--concise", is_flag=True, help="Skip the explanatory text and ask only the necessary questions.")
+@click.option(
+    "--skip-validation",
+    is_flag=True,
+    help="Write the config without validating provider credentials.",
+)
+@click.option(
+    "--concise",
+    is_flag=True,
+    help="Skip the explanatory text and ask only the necessary questions.",
+)
 @click.option("--email", help="ACME account email.")
 @click.option("--name", "certificate_name", help="Logical certificate name.")
 @click.option("--domains", help="Comma-separated domain list.")
-@click.option("--dns-provider", type=click.Choice(DNS_PROVIDER_CHOICES), help="DNS provider for DNS-01 challenges.")
-@click.option("--deployer", type=click.Choice(DEPLOYER_CHOICES), help="Deployment target provider.")
+@click.option(
+    "--dns-provider",
+    type=click.Choice(DNS_PROVIDER_CHOICES),
+    help="DNS provider for DNS-01 challenges.",
+)
+@click.option(
+    "--deployer",
+    type=click.Choice(DEPLOYER_CHOICES),
+    help="Deployment target provider.",
+)
 @click.option("--region", help="Cloud region for deployers that need one.")
 @click.option("--load-balancer-id", help="Alibaba Cloud CLB load balancer id.")
 @click.option("--listener-id", help="Alibaba Cloud ALB listener id.")
@@ -123,7 +175,12 @@ def revoke(ctx: click.Context, certificate_name: str) -> None:
 @click.option("--listener-arn", help="AWS ELBv2 listener ARN.")
 @click.option("--load-balancer-name", help="AWS Classic ELB name.")
 @click.option("--project", help="GCP project id.")
-@click.option("--scope", "gcp_scope", type=click.Choice(("global", "regional")), help="GCP load balancer scope.")
+@click.option(
+    "--scope",
+    "gcp_scope",
+    type=click.Choice(("global", "regional")),
+    help="GCP load balancer scope.",
+)
 @click.option("--target-https-proxy", help="GCP target HTTPS proxy name.")
 @click.option("--target-ssl-proxy", help="GCP target SSL proxy name.")
 def init(
@@ -181,7 +238,9 @@ def init(
             cache_key="dns_provider",
         )
         if not skip_validation:
-            preflight_provider_namespaces(dns_provider=dns_provider, deployment_provider=provider)
+            preflight_provider_namespaces(
+                dns_provider=dns_provider, deployment_provider=provider
+            )
 
         if deployer and deployer not in deployer_choices:
             allowed_deployers = ", ".join(deployer_choices)
@@ -234,7 +293,9 @@ def init(
             target_https_proxy=target_https_proxy,
             target_ssl_proxy=target_ssl_proxy,
         )
-        output_path, force = _resolve_init_output_path(output_path, force, concise=concise)
+        output_path, force = _resolve_init_output_path(
+            output_path, force, concise=concise
+        )
         result = initialize_config(
             email=email,
             certificate_name=certificate_name,
@@ -247,18 +308,26 @@ def init(
             validate=not skip_validation,
         )
         if result.validated:
-            click.echo(f"Validated credentials for {result.dns_provider} and {result.deployer}")
+            click.echo(
+                f"Validated credentials for {result.dns_provider} and {result.deployer}"
+            )
         click.echo(f"Wrote config to {result.output_path}")
     except LeetSSLCertError as exc:
         raise click.ClickException(str(exc)) from exc
 
 
 @main.command()
-@click.option("--schedule", default="0 2 * * *", show_default=True, help="Cron expression to use.")
+@click.option(
+    "--schedule", default="0 2 * * *", show_default=True, help="Cron expression to use."
+)
 @click.pass_context
 def cron(ctx: click.Context, schedule: str) -> None:
     """Generate a cron entry for unattended renewal."""
-    config_path = Path(ctx.obj["config_path"]) if ctx.obj.get("config_path") else load_config().path
+    config_path = (
+        Path(ctx.obj["config_path"])
+        if ctx.obj.get("config_path")
+        else load_config().path
+    )
     click.echo(build_cron_entry(schedule, config_path))
 
 
@@ -420,7 +489,9 @@ def _collect_deploy_settings(
             cache=cache,
             cache_key="project",
         )
-        target_mode = "target_https_proxy" if not target_ssl_proxy else "target_ssl_proxy"
+        target_mode = (
+            "target_https_proxy" if not target_ssl_proxy else "target_ssl_proxy"
+        )
         if not target_https_proxy and not target_ssl_proxy:
             target_mode = _prompt_with_help(
                 "Target proxy type",
@@ -468,7 +539,9 @@ def _collect_deploy_settings(
     return settings
 
 
-def _resolve_init_output_path(output_path: Path, force: bool, *, concise: bool) -> tuple[Path, bool]:
+def _resolve_init_output_path(
+    output_path: Path, force: bool, *, concise: bool
+) -> tuple[Path, bool]:
     path = output_path.expanduser()
     while path.exists() and not force:
         if not concise:
@@ -521,7 +594,9 @@ def _prompt_region(
     popular_regions = POPULAR_REGIONS.get(namespace, [])
     if not concise and popular_regions:
         click.echo("\nRegion")
-        click.echo("  Choose the cloud region where your load balancer or certificate resource lives.")
+        click.echo(
+            "  Choose the cloud region where your load balancer or certificate resource lives."
+        )
         click.echo("  Popular options:")
         for code, label in popular_regions:
             click.echo(f"  - {code}: {label}")
@@ -588,7 +663,9 @@ def _remember_init_inputs(
     _save_init_input_cache(cache, path)
 
 
-def _save_init_input_cache(cache: dict[str, Any], path: Path = INIT_INPUT_CACHE_PATH) -> None:
+def _save_init_input_cache(
+    cache: dict[str, Any], path: Path = INIT_INPUT_CACHE_PATH
+) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_name(f"{path.name}.tmp")

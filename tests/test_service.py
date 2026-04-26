@@ -27,7 +27,9 @@ class FakeAcmeManager:
     def __init__(self) -> None:
         self.revoked_names: list[str] = []
 
-    def issue_certificate(self, certificate: CertificateConfig, dns_provider: object) -> IssuedCertificate:
+    def issue_certificate(
+        self, certificate: CertificateConfig, dns_provider: object
+    ) -> IssuedCertificate:
         cert_pem, key_pem = build_self_signed_cert(certificate.domains[0], days=20)
         return IssuedCertificate(
             name=certificate.name,
@@ -147,7 +149,11 @@ def test_deploy_uses_aws_provider_namespace(tmp_path: Path) -> None:
                 name="site",
                 domains=["example.com"],
                 dns_provider="aws",
-                deploy=[DeployTargetConfig(provider="aws_acm", settings={"region": "us-east-1"})],
+                deploy=[
+                    DeployTargetConfig(
+                        provider="aws_acm", settings={"region": "us-east-1"}
+                    )
+                ],
             )
         ],
         providers={"aws": {"profile": "default"}},
@@ -195,7 +201,10 @@ def test_deploy_uses_gcp_provider_namespace(tmp_path: Path) -> None:
                 deploy=[
                     DeployTargetConfig(
                         provider="gcp_lb",
-                        settings={"scope": "global", "target_https_proxy": "edge-proxy"},
+                        settings={
+                            "scope": "global",
+                            "target_https_proxy": "edge-proxy",
+                        },
                     )
                 ],
             )
@@ -286,7 +295,9 @@ def build_self_signed_cert(common_name: str, *, days: int) -> tuple[bytes, bytes
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=5))
         .not_valid_after(datetime.now(timezone.utc) + timedelta(days=days))
-        .add_extension(x509.SubjectAlternativeName([x509.DNSName(common_name)]), critical=False)
+        .add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(common_name)]), critical=False
+        )
         .sign(private_key, hashes.SHA256())
     )
     cert_pem = certificate.public_bytes(serialization.Encoding.PEM)

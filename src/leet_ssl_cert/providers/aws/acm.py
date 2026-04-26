@@ -57,13 +57,22 @@ class AWSACMDeployer(CertificateDeployer):
     def cleanup_old_certificates(self, name: str, keep: int = 1) -> list[str]:
         paginator = self._client_or_raise().get_paginator("list_certificates")
         certificate_arns: list[str] = []
-        for page in paginator.paginate(CertificateStatuses=["ISSUED", "INACTIVE", "EXPIRED"]):
+        for page in paginator.paginate(
+            CertificateStatuses=["ISSUED", "INACTIVE", "EXPIRED"]
+        ):
             for summary in page.get("CertificateSummaryList", []):
                 arn = summary.get("CertificateArn")
                 if not arn:
                     continue
-                tags = self._client_or_raise().list_tags_for_certificate(CertificateArn=arn).get("Tags", [])
-                if _tag_value(tags, "ManagedBy") == "leet-ssl-cert" and _tag_value(tags, "Name") == name:
+                tags = (
+                    self._client_or_raise()
+                    .list_tags_for_certificate(CertificateArn=arn)
+                    .get("Tags", [])
+                )
+                if (
+                    _tag_value(tags, "ManagedBy") == "leet-ssl-cert"
+                    and _tag_value(tags, "Name") == name
+                ):
                     certificate_arns.append(arn)
         certificate_arns.sort(reverse=True)
         deleted: list[str] = []
@@ -87,7 +96,9 @@ class AWSACMDeployer(CertificateDeployer):
         try:
             import boto3
         except ImportError as exc:
-            raise DeployError("boto3 is not installed. Install leet-ssl-cert[aws].") from exc
+            raise DeployError(
+                "boto3 is not installed. Install leet-ssl-cert[aws]."
+            ) from exc
         session = boto3.session.Session(
             aws_access_key_id=self.settings.get("access_key_id"),
             aws_secret_access_key=self.settings.get("secret_access_key"),
