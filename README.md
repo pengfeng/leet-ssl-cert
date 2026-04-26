@@ -149,8 +149,8 @@ certificates:
 
 providers:
   aliyun:
-    access_key_id: ${ALICLOUD_ACCESS_KEY_ID}
-    access_key_secret: ${ALICLOUD_ACCESS_KEY_SECRET}
+    access_key_id: ${ALIBABA_CLOUD_ACCESS_KEY_ID}
+    access_key_secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
 ```
 
 Environment variables in `${VAR_NAME}` form are resolved at load time. See [config/example.yaml](config/example.yaml) for a full example.

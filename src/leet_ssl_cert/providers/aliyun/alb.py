@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 from leet_ssl_cert.errors import DeployError
@@ -160,9 +160,9 @@ class AliyunALBDeployer(CertificateDeployer):
         return CasClient(config)
 
     def _region_id(self) -> str:
-        region_id = str(self.settings.get("region") or os.getenv("ALICLOUD_REGION") or "").strip()
+        region_id = str(self.settings.get("region") or os.getenv("ALIBABA_CLOUD_REGION_ID") or "").strip()
         if not region_id:
-            raise DeployError("aliyun_alb deployer requires region or ALICLOUD_REGION")
+            raise DeployError("aliyun_alb deployer requires region or ALIBABA_CLOUD_REGION_ID")
         return region_id
 
     def _alb_request(self, name: str) -> Any:

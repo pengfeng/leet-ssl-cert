@@ -72,7 +72,8 @@ class AliyunDNSProvider(DNSProvider):
         if not access_key_id or not access_key_secret:
             raise DNSError("aliyun provider requires access_key_id and access_key_secret")
         try:
-            from alibabacloud_alidns20150109.client import Client as AlidnsClient
+            from alibabacloud_alidns20150109.client import \
+                Client as AlidnsClient
             from alibabacloud_tea_openapi import models as open_api_models
         except ImportError as exc:
             raise DNSError("Alibaba Cloud DNS SDK is not installed. Install leet-ssl-cert[aliyun].") from exc
@@ -88,9 +89,9 @@ class AliyunDNSProvider(DNSProvider):
         return AlidnsClient(config)
 
     def _region_id(self) -> str:
-        region_id = str(self.settings.get("region") or os.getenv("ALICLOUD_REGION") or "").strip()
+        region_id = str(self.settings.get("region") or os.getenv("ALIBABA_CLOUD_REGION_ID") or "").strip()
         if not region_id:
-            raise DNSError("aliyun provider requires region or ALICLOUD_REGION")
+            raise DNSError("aliyun provider requires region or ALIBABA_CLOUD_REGION_ID")
         return region_id
 
     def _client_or_raise(self) -> Any:

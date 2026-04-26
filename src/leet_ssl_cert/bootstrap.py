@@ -22,8 +22,8 @@ DEPLOYER_CHOICES_BY_PROVIDER = {
     "gcp": ("gcp_lb",),
 }
 ENV_VAR_DEFINITIONS = {
-    "ALICLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
-    "ALICLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
+    "ALIBABA_CLOUD_ACCESS_KEY_ID": "Alibaba Cloud access key ID used to authenticate API requests.",
+    "ALIBABA_CLOUD_ACCESS_KEY_SECRET": "Alibaba Cloud access key secret paired with the access key ID.",
     "AWS_ACCESS_KEY_ID": "AWS access key ID used by boto3 when using environment-based credentials.",
     "AWS_SECRET_ACCESS_KEY": "AWS secret access key paired with AWS_ACCESS_KEY_ID.",
     "AWS_SESSION_TOKEN": "Temporary AWS session token used with short-lived credentials.",
@@ -39,7 +39,7 @@ ENV_VAR_DEFINITIONS = {
     "GODADDY_API_BASE_URL": "Optional GoDaddy API base URL override, such as the OTE environment.",
 }
 SETUP_ENV_VARS_BY_PROVIDER = {
-    "aliyun": ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"],
+    "aliyun": ["ALIBABA_CLOUD_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_SECRET"],
     "aws": [
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
@@ -190,8 +190,8 @@ def _provider_namespace(provider_name: str) -> str:
 def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
     if namespace == "aliyun":
         return {
-            "access_key_id": "${ALICLOUD_ACCESS_KEY_ID}",
-            "access_key_secret": "${ALICLOUD_ACCESS_KEY_SECRET}",
+            "access_key_id": "${ALIBABA_CLOUD_ACCESS_KEY_ID}",
+            "access_key_secret": "${ALIBABA_CLOUD_ACCESS_KEY_SECRET}",
         }
     if namespace == "aws":
         return {}
@@ -207,13 +207,13 @@ def _provider_placeholder_settings(namespace: str) -> dict[str, Any]:
 
 def _runtime_provider_settings(namespace: str, deploy_settings: dict[str, Any]) -> dict[str, Any]:
     if namespace == "aliyun":
-        access_key_id = os.getenv("ALICLOUD_ACCESS_KEY_ID")
-        access_key_secret = os.getenv("ALICLOUD_ACCESS_KEY_SECRET")
+        access_key_id = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID")
+        access_key_secret = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
         settings = {
             "access_key_id": access_key_id,
             "access_key_secret": access_key_secret,
         }
-        region = os.getenv("ALICLOUD_REGION") or deploy_settings.get("region")
+        region = os.getenv("ALIBABA_CLOUD_REGION_ID") or deploy_settings.get("region")
         if region:
             settings["region"] = region
         return settings
@@ -305,7 +305,7 @@ def _redact_env_value(value: str) -> str:
 
 def _provider_env_vars(namespace: str) -> list[str]:
     if namespace == "aliyun":
-        return ["ALICLOUD_ACCESS_KEY_ID", "ALICLOUD_ACCESS_KEY_SECRET"]
+        return ["ALIBABA_CLOUD_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_SECRET"]
     if namespace == "aws":
         return []
     return []
