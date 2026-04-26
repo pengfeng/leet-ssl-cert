@@ -183,5 +183,5 @@ def test_gcp_lb_rejects_regional_target_ssl_proxy() -> None:
 def test_gcp_dns_provider_requires_project() -> None:
     provider = GCPCloudDNSProvider({})
 
-    with pytest.raises(DNSError, match="requires project"):
+    with pytest.raises(DNSError, match="requires a project"):
         provider._project()

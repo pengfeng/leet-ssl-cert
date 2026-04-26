@@ -164,7 +164,8 @@ class GCPLoadBalancerDeployer(CertificateDeployer):
         project = resolve_gcp_project(self.settings)
         if not project:
             raise DeployError(
-                "gcp_lb deployer requires project, GOOGLE_CLOUD_PROJECT, or GOOGLE_CLOUD_PROJECT"
+                "gcp_lb deployer requires a project: set the 'project' setting, "
+                "the GOOGLE_CLOUD_PROJECT env var, or configure Application Default Credentials"
             )
         return project
 

@@ -89,7 +89,8 @@ class GCPCloudDNSProvider(DNSProvider):
         project = resolve_gcp_project(self.settings)
         if not project:
             raise DNSError(
-                "gcp provider requires project, GOOGLE_CLOUD_PROJECT, or GOOGLE_CLOUD_PROJECT"
+                "gcp provider requires a project: set the 'project' setting, "
+                "the GOOGLE_CLOUD_PROJECT env var, or configure Application Default Credentials"
             )
         return project
 
