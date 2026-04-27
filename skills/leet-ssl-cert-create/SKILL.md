@@ -36,11 +36,13 @@ The CLI auto-loads `./.env` and `~/.leet-ssl-cert/.env` at startup (existing pro
 
 1. Skill argument from the invocation.
 2. Process env / `.env` keys (see table below).
-3. Existing `leet-ssl-cert.yaml` (cwd, then `~/.leet-ssl-cert/config.yaml`). Reuse `account.email`, `acme.*`, and — if any cert in the file already has overlapping domains — its `dns_provider`.
-4. `.leet/.init-inputs.json` cache (written by `leet-ssl-cert init`).
+3. Existing `leet-ssl-cert.yaml` (cwd, then `~/.leet-ssl-cert/config.yaml`). Reuse `account.email`, `acme.*`, and — only if an existing cert's apex domain matches the new domain's apex — its `dns_provider`.
+4. `.leet/.init-inputs.json` cache (written by `leet-ssl-cert init`) — for `email` only. Do **not** infer `dns_provider` from this cache; the init defaults reflect the first cert ever set up, not the new domain.
 5. Hardcoded fallbacks: `directory_url=https://acme-v02.api.letsencrypt.org/directory`, `key_size=2048`, `renewal_days=30`.
 
 If after step 5 a required field is still missing (`email` or `dns_provider`), ask the user *once* with `AskUserQuestion`, then **persist the answer back to `./.env`** (preserving existing keys) so future runs don't ask again.
+
+**Always confirm `dns_provider` with the user before issuing**, unless it was passed as an explicit skill argument or set via `LEET_SSL_CERT_DNS_PROVIDER` in env/`.env`. DNS zone ownership is per-domain and can't be reliably inferred from other certs in the config — guessing wrong wastes an ACME round-trip and surfaces a confusing "Unable to find DNS zone" error. Use `AskUserQuestion` with options `aliyun` / `aws` / `gcp` / `godaddy` (preselect the resolved value if any). This confirmation can be folded into the same prompt as the final Proceed/Cancel preview in step 8.
 
 ### `.env` keys read by this skill
 

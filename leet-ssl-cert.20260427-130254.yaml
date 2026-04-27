@@ -1,0 +1,29 @@
+account:
+  email: feng@linktimecorp.com
+acme:
+  directory_url: https://acme-v02.api.letsencrypt.org/directory
+  key_size: 2048
+  renewal_days: 30
+storage:
+  base_dir: ~/.leet-ssl-cert/certs
+certificates:
+- name: wwwwlinktimecorpcom
+  domains:
+  - www.linktimecloud.com
+  dns_provider: aliyun
+  deploy:
+  - provider: aliyun_clb
+    region: cn-shanghai
+    load_balancer_id: lb-uf67nhjkzs0ffhdrv3ysm
+    listener_port: 443
+- name: test-leettools-com
+  domains:
+  - test.leettools.com
+  dns_provider: godaddy
+providers:
+  aliyun:
+    access_key_id: ${ALIBABA_CLOUD_ACCESS_KEY_ID}
+    access_key_secret: ${ALIBABA_CLOUD_ACCESS_KEY_SECRET}
+  godaddy:
+    api_key: ${GODADDY_API_KEY}
+    api_secret: ${GODADDY_API_SECRET}
