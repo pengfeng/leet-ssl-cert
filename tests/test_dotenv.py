@@ -23,6 +23,12 @@ def test_parse_line_strips_quotes() -> None:
 
 def test_parse_line_strips_inline_comment_for_unquoted() -> None:
     assert _parse_line("FOO=bar # note") == ("FOO", "bar")
+    assert _parse_line("FOO=bar\t# tab-prefixed note") == ("FOO", "bar")
+    assert _parse_line("FOO=bar  \t # mixed whitespace") == ("FOO", "bar")
+
+
+def test_parse_line_keeps_hash_without_leading_whitespace() -> None:
+    assert _parse_line("FOO=bar#still-value") == ("FOO", "bar#still-value")
 
 
 def test_parse_line_keeps_hash_inside_quoted_value() -> None:
@@ -77,3 +83,14 @@ def test_load_dotenv_files_silently_skips_missing_paths(tmp_path: Path) -> None:
     applied = load_dotenv_files((missing,), environ=environ)
     assert applied == {}
     assert environ == {}
+
+
+def test_load_dotenv_files_respects_disable_env_var(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("SECRET=from-file\n", encoding="utf-8")
+
+    environ: dict[str, str] = {"LEET_SSL_CERT_DISABLE_DOTENV": "1"}
+    applied = load_dotenv_files((env_file,), environ=environ)
+
+    assert applied == {}
+    assert "SECRET" not in environ

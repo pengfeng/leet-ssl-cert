@@ -10,7 +10,12 @@ Supported syntax:
 - ``export KEY=value`` (the ``export`` prefix is stripped).
 - Single- or double-quoted values; quotes are stripped.
 - Lines beginning with ``#`` are comments. Blank lines are ignored.
-- Inline comments after an unquoted value (``KEY=value  # note``) are stripped.
+- Inline comments after an unquoted value (``KEY=value  # note``) are stripped
+  when ``#`` is preceded by any whitespace (space or tab).
+
+Set ``LEET_SSL_CERT_DISABLE_DOTENV=1`` to skip autoloading; this guards
+against picking up an unexpected ``.env`` when running in an untrusted
+working directory.
 """
 
 from __future__ import annotations
@@ -22,6 +27,8 @@ DEFAULT_DOTENV_LOCATIONS = (
     Path(".env"),
     Path.home() / ".leet-ssl-cert" / ".env",
 )
+DISABLE_ENV_VAR = "LEET_SSL_CERT_DISABLE_DOTENV"
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
 def load_dotenv_files(
@@ -35,8 +42,13 @@ def load_dotenv_files(
     when ``environ`` is None). The first occurrence of a key wins, both
     within a single file and across files; existing environ entries
     always take precedence over file values.
+
+    If ``LEET_SSL_CERT_DISABLE_DOTENV`` is set to a truthy value in the
+    target environment, no files are read and an empty dict is returned.
     """
     target = os.environ if environ is None else environ
+    if target.get(DISABLE_ENV_VAR, "").strip().lower() in _TRUTHY:
+        return {}
     applied: dict[str, str] = {}
     for location in locations:
         path = location.expanduser()
@@ -77,10 +89,15 @@ def _parse_line(raw_line: str) -> tuple[str | None, str]:
     if value and value[0] in ("'", '"') and value.endswith(value[0]) and len(value) >= 2:
         value = value[1:-1]
     else:
-        comment_index = value.find(" #")
-        if comment_index >= 0:
-            value = value[:comment_index].rstrip()
+        value = _strip_inline_comment(value)
     return key, value
+
+
+def _strip_inline_comment(value: str) -> str:
+    for index, char in enumerate(value):
+        if char == "#" and index > 0 and value[index - 1].isspace():
+            return value[:index].rstrip()
+    return value
 
 
 def _is_valid_key(key: str) -> bool:
