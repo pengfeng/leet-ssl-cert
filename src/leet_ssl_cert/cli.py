@@ -17,6 +17,7 @@ from leet_ssl_cert.bootstrap import (
     preflight_provider_namespaces,
 )
 from leet_ssl_cert.config import load_config
+from leet_ssl_cert.dotenv import load_dotenv_files
 from leet_ssl_cert.errors import LeetSSLCertError
 from leet_ssl_cert.scheduler import build_cron_entry
 from leet_ssl_cert.service import CertificateService
@@ -62,6 +63,7 @@ def build_service(config_path: str | None) -> CertificateService:
 @click.pass_context
 def main(ctx: click.Context, config_path: Path | None) -> None:
     """Automate ACME issuance and cloud certificate deployment."""
+    load_dotenv_files()
     ctx.ensure_object(dict)
     ctx.obj["config_path"] = str(config_path) if config_path else None
 
